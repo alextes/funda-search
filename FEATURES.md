@@ -10,6 +10,8 @@
 - [x] Fold-out shows description (left) next to floor plan image (right)
 - [x] Detect uncategorized floor plans hiding among regular photos (pixel-stats heuristic: mostly white/gray page with dark line art); `--backfill-floorplans` for stored listings
 - [x] Minimum living area filter (config `filters.min_area`, applied to search and render)
+- [x] Photo grid per listing (click row thumbnail, fold-out link, or `p`); grid image click opens full-res original
+- [x] Keyboard shortcuts: `j`/`k` move, `enter` fold, `p` photos, `x`/`0`–`3` rate (auto-advances when the row hides), `f` open funda, `esc` close
 
 ## Planned
 
@@ -20,6 +22,8 @@
 - [ ] **Travel time** — realistic bike/transit time to chosen points (work, center) instead of straight-line distance
 - [ ] **Price history / sold data** — pyfunda exposes price history; flag price drops
 - [ ] **Notifications** — ping (email/Telegram) when a new listing matches the criteria
+
+- [ ] **Photo slideshow** — clicking a grid image currently opens the full-res file in a new tab; a proper in-page slideshow with arrow-key navigation is the next step
 
 ## Ideas / someday
 

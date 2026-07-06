@@ -159,6 +159,7 @@ def build_record(item, detail, config: dict) -> dict:
         "distance_km": distance_km,
         "floorplans": floorplans,
         "photo_url": photo_url,
+        "photo_urls": photos,
         "description": detail.description,
         "status": str(item.status or ""),
     }
@@ -181,6 +182,21 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
             time.sleep(DETAIL_FETCH_DELAY_S)
 
     return len(items), len(new_items)
+
+
+def backfill_photos(listings: dict[str, dict]) -> None:
+    """Fetch and store the full photo URL list for listings missing it."""
+    todo = [l for l in listings.values() if "photo_urls" not in l]
+    print(f"{len(todo)} listings without photo lists")
+    with Funda() as client:
+        for n, l in enumerate(todo, 1):
+            try:
+                detail = client.listing(l["id"])
+                l["photo_urls"] = list(detail.media.photo_urls or [])
+                print(f"  [{n}/{len(todo)}] {l['title']}: {len(l['photo_urls'])} photos")
+            except Exception as e:
+                print(f"  [{n}/{len(todo)}] {l['title']} FAILED: {e}", file=sys.stderr)
+            time.sleep(DETAIL_FETCH_DELAY_S)
 
 
 def backfill_floorplans(listings: dict[str, dict]) -> None:
@@ -239,8 +255,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         price = f"€ {l['price']:,}".replace(",", ".") if l.get("price") else "–"
         ppm2 = f"€ {l['price_per_m2']:,}".replace(",", ".") if l.get("price_per_m2") else "–"
         desc = html.escape(l.get("description") or "")
+        photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}">
+            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>
       {'<span class="badge">new</span>' if is_new else ''}</td>
@@ -298,11 +315,20 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .fold-right .maplink {{ font-size: .8rem; display: inline-block; margin: .3rem 0 .8rem; color: #0071b3; }}
   .fold-right img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
   .fold-right .none {{ color: #999; }}
+  kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
+  tr.sel > td {{ background: #eaf4fb; }} tr.sel.new > td {{ background: #f2f0d8; }}
+  #grid {{ position: fixed; inset: 0; background: rgba(255,255,255,.98); z-index: 10; overflow-y: auto; padding: 1rem; }}
+  #grid header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }}
+  #grid header span {{ font-weight: 600; }}
+  #grid header button {{ border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
+  #grid .cells {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .5rem; }}
+  #grid .cells img {{ width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 4px; cursor: pointer; display: block; }}
 </style>
 </head>
 <body>
 <h1>funda-search · {html.escape(config['location'])}</h1>
-<p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan</p>
+<p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
+<p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
@@ -317,6 +343,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 {chr(10).join(body_rows)}
 </tbody>
 </table>
+<div id="grid" hidden>
+  <header><span id="gridTitle"></span><button id="gridClose">close (esc)</button></header>
+  <div class="cells"></div>
+</div>
 <script>
 const tbody = document.querySelector('#t tbody');
 const ratings = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
@@ -377,21 +407,16 @@ document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click
   rows.forEach(r => tbody.appendChild(r));
 }}));
 
-tbody.addEventListener('click', e => {{
-  const btn = e.target.closest('.rate button');
-  if (btn) {{
-    const tr = btn.closest('tr');
-    const s = +btn.dataset.s;
-    if (ratings[tr.dataset.id] === s) delete ratings[tr.dataset.id];
-    else ratings[tr.dataset.id] = s;
-    saveRatings(); applyRatings(); applyFilters();
-    return;
-  }}
-  const tr = e.target.closest('tr');
-  if (!tr || tr.classList.contains('desc-row') || e.target.closest('a')) return;
+function rate(tr, s) {{
+  if (ratings[tr.dataset.id] === s) delete ratings[tr.dataset.id];
+  else ratings[tr.dataset.id] = s;
+  saveRatings(); applyRatings(); applyFilters();
+}}
+
+function toggleFold(tr) {{
   const next = tr.nextElementSibling;
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
-  const desc = tr.dataset.desc || '';
+  const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
   const fps = (tr.dataset.fp || '').split(' ').filter(Boolean);
   const fpHtml = fps.length
     ? fps.map(u => `<img src="${{u}}" loading="lazy" alt="floor plan">`).join('')
@@ -403,6 +428,9 @@ tbody.addEventListener('click', e => {{
     mapHtml = `<iframe loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${{bbox}}&layer=mapnik&marker=${{lat}},${{lon}}"></iframe>
       <a class="maplink" href="https://www.google.com/maps?q=${{lat}},${{lon}}" target="_blank">open in Google Maps</a>`;
   }}
+  const photosLink = photos.length
+    ? `<a class="maplink" href="#" data-open-grid>browse ${{photos.length}} photos (p)</a><br>`
+    : '';
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
@@ -411,14 +439,111 @@ tbody.addEventListener('click', e => {{
   fold.className = 'fold';
   const descDiv = document.createElement('div');
   descDiv.className = 'fold-desc';
-  descDiv.textContent = desc;
+  descDiv.textContent = tr.dataset.desc || '';
   const fpDiv = document.createElement('div');
   fpDiv.className = 'fold-right';
-  fpDiv.innerHTML = mapHtml + fpHtml;
+  fpDiv.innerHTML = photosLink + mapHtml + fpHtml;
+  const gl = fpDiv.querySelector('[data-open-grid]');
+  if (gl) gl.addEventListener('click', e => {{ e.preventDefault(); openGrid(tr); }});
   fold.append(descDiv, fpDiv);
   cell.append(fold);
   row.append(cell);
   tr.after(row);
+}}
+
+// --- photo grid ---
+const grid = document.getElementById('grid');
+
+function openGrid(tr) {{
+  const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
+  if (!photos.length) return;
+  document.getElementById('gridTitle').textContent =
+    tr.querySelector('.addr a').textContent.trim() + ` · ${{photos.length}} photos`;
+  const cells = grid.querySelector('.cells');
+  cells.innerHTML = '';
+  for (const url of photos) {{
+    const img = document.createElement('img');
+    img.src = url.replace('.jpg', '_720x480.jpg');
+    img.loading = 'lazy';
+    img.addEventListener('click', () => window.open(url, '_blank'));
+    cells.append(img);
+  }}
+  grid.hidden = false;
+  grid.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}}
+
+function closeGrid() {{
+  grid.hidden = true;
+  document.body.style.overflow = '';
+}}
+
+document.getElementById('gridClose').addEventListener('click', closeGrid);
+
+tbody.addEventListener('click', e => {{
+  const btn = e.target.closest('.rate button');
+  if (btn) {{ rate(btn.closest('tr'), +btn.dataset.s); return; }}
+  const tr = e.target.closest('tr');
+  if (!tr || tr.classList.contains('desc-row')) return;
+  select(tr);
+  if (e.target.closest('td.photo')) {{ openGrid(tr); return; }}
+  if (e.target.closest('a')) return;
+  toggleFold(tr);
+}});
+
+// --- keyboard navigation ---
+let sel = null;
+
+function visibleRows() {{ return listingRows().filter(r => r.style.display !== 'none'); }}
+
+function select(tr) {{
+  if (sel) sel.classList.remove('sel');
+  sel = tr;
+  if (sel) {{
+    sel.classList.add('sel');
+    sel.scrollIntoView({{block: 'nearest', behavior: 'smooth'}});
+  }}
+}}
+
+function move(delta) {{
+  const rows = visibleRows();
+  if (!rows.length) return;
+  let i = sel ? rows.indexOf(sel) : -1;
+  if (i === -1) {{ select(rows[delta > 0 ? 0 : rows.length - 1]); return; }}
+  select(rows[Math.min(rows.length - 1, Math.max(0, i + delta))]);
+}}
+
+document.addEventListener('keydown', e => {{
+  if (e.target.matches?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!grid.hidden) {{
+    if (e.key === 'Escape' || e.key === 'p') {{ e.preventDefault(); closeGrid(); }}
+    return;
+  }}
+  const rated = () => {{
+    // if rating hid the selected row, advance to the nearest visible one below
+    if (sel && sel.style.display === 'none') {{
+      const rows = listingRows();
+      const from = rows.indexOf(sel);
+      const nextVis = rows.slice(from + 1).find(r => r.style.display !== 'none')
+        || rows.slice(0, from).reverse().find(r => r.style.display !== 'none');
+      select(nextVis || null);
+    }}
+  }};
+  switch (e.key) {{
+    case 'j': case 'ArrowDown': e.preventDefault(); move(1); break;
+    case 'k': case 'ArrowUp': e.preventDefault(); move(-1); break;
+    case 'Enter': case ' ': if (sel) {{ e.preventDefault(); toggleFold(sel); }} break;
+    case 'p': if (sel) {{ e.preventDefault(); openGrid(sel); }} break;
+    case 'f': if (sel) window.open(sel.querySelector('.addr a').href, '_blank'); break;
+    case 'x': case '0': if (sel) {{ rate(sel, 0); rated(); }} break;
+    case '1': case '2': case '3': if (sel) {{ rate(sel, +e.key); rated(); }} break;
+    case 'Escape': {{
+      const open = document.querySelector('.desc-row');
+      if (open) open.remove();
+      else select(null);
+      break;
+    }}
+  }}
 }});
 
 applyRatings();
@@ -441,13 +566,21 @@ def main() -> None:
         action="store_true",
         help="detect floor plans for stored listings that have none, then re-render",
     )
+    parser.add_argument(
+        "--backfill-photos",
+        action="store_true",
+        help="store the full photo URL list for listings missing it, then re-render",
+    )
     args = parser.parse_args()
 
     config = load_config()
     listings = load_listings()
 
-    if args.backfill_floorplans:
-        backfill_floorplans(listings)
+    if args.backfill_floorplans or args.backfill_photos:
+        if args.backfill_floorplans:
+            backfill_floorplans(listings)
+        if args.backfill_photos:
+            backfill_photos(listings)
         save_listings(listings)
     elif not args.render_only:
         fetch(config, listings)
