@@ -8,11 +8,12 @@
 - [x] Sortable columns, expandable descriptions, "new" badge for listings first seen today
 - [x] Rate listings 0–3 (0 = reviewed, not interesting), persisted in localStorage; filters to hide rated / hide 0-rated; sortable score column
 - [x] Fold-out shows description (left) next to floor plan image (right)
+- [x] Detect uncategorized floor plans hiding among regular photos (pixel-stats heuristic: mostly white/gray page with dark line art); `--backfill-floorplans` for stored listings
+- [x] Minimum living area filter (config `filters.min_area`, applied to search and render)
 
 ## Planned
 
 - [ ] **Daily morning search** — run `fetch.py` every morning automatically (launchd/cron or a scheduled Claude task) and surface what's new
-- [ ] **Floor plan display** — download floor plan images and show them inline in the overview instead of just linking out
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
 - [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`

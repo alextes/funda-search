@@ -2,7 +2,7 @@
   "location": "amsterdam",
   "filters": {
     "max_price": null,
-    "min_area": null,
+    "min_area": 75,
     "min_rooms": null
   },
   "pages": 3,

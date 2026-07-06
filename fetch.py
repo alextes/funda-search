@@ -10,14 +10,17 @@ from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import math
 import sys
 import time
+import urllib.request
 from datetime import date, datetime
 from pathlib import Path
 
 from funda import Funda
+from PIL import Image
 
 ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data" / "listings.json"
@@ -25,6 +28,40 @@ OVERVIEW_FILE = ROOT / "overview.html"
 CONFIG_FILE = ROOT / "config.json"
 
 DETAIL_FETCH_DELAY_S = 1.0
+IMAGE_FETCH_DELAY_S = 0.15
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    " (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
+# Listers don't always categorize floor plans; they then appear as regular
+# photos, anywhere in the set. Plans are dark line art on a mostly white
+# page, so classify on pixel stats (measured: photos <= 0.27 white, plans
+# >= 0.7; blank placeholder pages have ~0 dark pixels, plans >= 0.012).
+FLOORPLAN_WHITE_MIN = 0.5
+FLOORPLAN_GRAY_MIN = 0.5
+FLOORPLAN_DARK_MIN = 0.008
+
+
+def detect_floorplans(photo_urls: list[str]) -> list[str]:
+    """Return photo URLs that look like floor plans (pixel-stats heuristic)."""
+    found = []
+    for url in photo_urls:
+        small = url.replace(".jpg", "_360.jpg")
+        try:
+            req = urllib.request.Request(small, headers={"User-Agent": BROWSER_UA})
+            data = urllib.request.urlopen(req, timeout=15).read()
+            img = Image.open(io.BytesIO(data)).convert("RGB").resize((160, 120))
+        except Exception:
+            continue
+        px = list(img.getdata())
+        n = len(px)
+        white = sum(1 for r, g, b in px if r > 230 and g > 230 and b > 230) / n
+        gray = sum(1 for r, g, b in px if abs(r - g) < 12 and abs(g - b) < 12 and abs(r - b) < 12) / n
+        dark = sum(1 for r, g, b in px if r < 120 and g < 120 and b < 120) / n
+        if white > FLOORPLAN_WHITE_MIN and gray > FLOORPLAN_GRAY_MIN and dark > FLOORPLAN_DARK_MIN:
+            found.append(url)
+        time.sleep(IMAGE_FETCH_DELAY_S)
+    return found
 
 
 def load_config() -> dict:
@@ -79,6 +116,9 @@ def build_record(item, detail, config: dict) -> dict:
         center = config["center"]
         distance_km = round(haversine_km(lat, lon, center["lat"], center["lon"]), 1)
 
+    photos = list(detail.media.photo_urls or [])
+    photo_url = photos[0] if photos else None
+
     floorplans = []
     for fp in detail.media.floorplans or []:
         floorplans.append(
@@ -88,11 +128,11 @@ def build_record(item, detail, config: dict) -> dict:
                 "embed_url": fp.embed_url,
             }
         )
-
-    photo_url = None
-    photos = detail.media.photo_urls or []
-    if photos:
-        photo_url = photos[0]
+    if not floorplans:
+        floorplans = [
+            {"thumbnail_url": u, "page_url": None, "embed_url": None, "detected": True}
+            for u in detect_floorplans(photos)
+        ]
 
     pub_date = detail.publication_date or getattr(item, "publication_date", None)
     if pub_date is not None:
@@ -143,10 +183,35 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
     return len(items), len(new_items)
 
 
+def backfill_floorplans(listings: dict[str, dict]) -> None:
+    """Detect floor plans for stored listings that don't have any."""
+    todo = [l for l in listings.values() if not l.get("floorplans")]
+    print(f"{len(todo)} listings without floor plans")
+    with Funda() as client:
+        for n, l in enumerate(todo, 1):
+            try:
+                detail = client.listing(l["id"])
+                photos = list(detail.media.photo_urls or [])
+                detected = detect_floorplans(photos)
+                l["floorplans"] = [
+                    {"thumbnail_url": u, "page_url": None, "embed_url": None, "detected": True}
+                    for u in detected
+                ]
+                print(f"  [{n}/{len(todo)}] {l['title']}: {len(detected)} detected")
+            except Exception as e:
+                print(f"  [{n}/{len(todo)}] {l['title']} FAILED: {e}", file=sys.stderr)
+            time.sleep(DETAIL_FETCH_DELAY_S)
+
+
 def render(config: dict, listings: dict[str, dict]) -> None:
     today = date.today().isoformat()
+    min_area = config.get("filters", {}).get("min_area")
     rows = sorted(
-        listings.values(),
+        (
+            l
+            for l in listings.values()
+            if not (min_area and l.get("living_area") and l["living_area"] < min_area)
+        ),
         key=lambda l: (l.get("first_seen") or "", l.get("publication_date") or ""),
         reverse=True,
     )
@@ -371,12 +436,20 @@ def main() -> None:
     parser.add_argument(
         "--render-only", action="store_true", help="regenerate overview.html without fetching"
     )
+    parser.add_argument(
+        "--backfill-floorplans",
+        action="store_true",
+        help="detect floor plans for stored listings that have none, then re-render",
+    )
     args = parser.parse_args()
 
     config = load_config()
     listings = load_listings()
 
-    if not args.render_only:
+    if args.backfill_floorplans:
+        backfill_floorplans(listings)
+        save_listings(listings)
+    elif not args.render_only:
         fetch(config, listings)
         save_listings(listings)
 
