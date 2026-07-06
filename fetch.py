@@ -159,10 +159,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     body_rows = []
     for l in rows:
         is_new = l.get("first_seen") == today
-        fp = l.get("floorplans") or []
+        fps = l.get("floorplans") or []
+        fp_urls = " ".join(fp["thumbnail_url"] for fp in fps)
         fp_cell = (
-            f'<td><a href="{html.escape(fp[0]["thumbnail_url"])}" target="_blank">plattegrond</a></td>'
-            if fp
+            f'<td><a href="{html.escape(fps[0]["thumbnail_url"])}" target="_blank">floor plan</a></td>'
+            if fps
             else "<td>–</td>"
         )
         photo = (
@@ -174,10 +175,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         ppm2 = f"€ {l['price_per_m2']:,}".replace(",", ".") if l.get("price_per_m2") else "–"
         desc = html.escape(l.get("description") or "")
         body_rows.append(
-            f"""<tr class="{'new' if is_new else ''}" data-desc="{desc[:2000]}">
+            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>
-      {'<span class="badge">nieuw</span>' if is_new else ''}</td>
+      {'<span class="badge">new</span>' if is_new else ''}</td>
   {td(l.get('wijk'))}
   {td(l.get('neighbourhood'))}
   <td data-sort="{l.get('price') or 0}">{price}</td>
@@ -188,11 +189,17 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td data-sort="{l.get('distance_km') or 999}">{l.get('distance_km') if l.get('distance_km') is not None else '–'} km</td>
   {fp_cell}
   {td(l.get('publication_date'))}
+  <td class="score" data-sort="-1"><div class="rate">
+    <button data-s="0" title="reviewed, not interesting">✕</button>
+    <button data-s="1">1</button>
+    <button data-s="2">2</button>
+    <button data-s="3">3</button>
+  </div></td>
 </tr>"""
         )
 
     page = f"""<!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -200,7 +207,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <style>
   :root {{ font-family: -apple-system, system-ui, sans-serif; }}
   body {{ margin: 2rem; color: #1a1a1a; }}
-  h1 {{ font-size: 1.3rem; }} .meta {{ color: #666; font-size: .85rem; margin-bottom: 1rem; }}
+  h1 {{ font-size: 1.3rem; }} .meta {{ color: #666; font-size: .85rem; }}
+  .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; gap: 1.2rem; align-items: center; color: #333; }}
+  .controls label {{ cursor: pointer; user-select: none; }}
   table {{ border-collapse: collapse; width: 100%; font-size: .85rem; }}
   th, td {{ text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
   th {{ cursor: pointer; user-select: none; position: sticky; top: 0; background: #fff; }}
@@ -210,16 +219,32 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .photo img {{ width: 72px; height: 48px; object-fit: cover; border-radius: 4px; display: block; }}
   .addr a {{ color: #0071b3; text-decoration: none; }} .addr a:hover {{ text-decoration: underline; }}
   tr {{ cursor: pointer; }}
-  tr.desc-row {{ cursor: auto; }} tr.desc-row td {{ white-space: normal; color: #444; background: #fafafa; max-width: 60rem; }}
+  .rate {{ display: flex; gap: .2rem; }}
+  .rate button {{ width: 1.7rem; height: 1.7rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
+                  cursor: pointer; font-size: .8rem; color: #555; }}
+  .rate button:hover {{ border-color: #f7a100; color: #f7a100; }}
+  .rate button.on {{ background: #f7a100; border-color: #f7a100; color: #fff; }}
+  .rate button[data-s="0"].on {{ background: #999; border-color: #999; }}
+  tr.desc-row {{ cursor: auto; }} tr.desc-row > td {{ white-space: normal; background: #fafafa; }}
+  .fold {{ display: flex; gap: 1.5rem; align-items: flex-start; }}
+  .fold-desc {{ flex: 1 1 50%; color: #444; white-space: pre-line; max-width: 50%; }}
+  .fold-fp {{ flex: 1 1 50%; }}
+  .fold-fp img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
+  .fold-fp .none {{ color: #999; }}
 </style>
 </head>
 <body>
 <h1>funda-search · {html.escape(config['location'])}</h1>
-<p class="meta">{len(rows)} listings · gegenereerd {datetime.now().strftime('%Y-%m-%d %H:%M')} · klik kolomkop om te sorteren, klik rij voor omschrijving</p>
+<p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan</p>
+<div class="controls">
+  <label><input type="checkbox" id="hideRated"> hide rated</label>
+  <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
+  <span id="counts" class="meta"></span>
+</div>
 <table id="t">
 <thead><tr>
-  <th></th><th>Adres</th><th>Wijk</th><th>Buurt</th><th>Prijs</th><th>Oppervlakte</th><th>€/m²</th>
-  <th>Kamers</th><th>Label</th><th>Afstand centrum</th><th>Plattegrond</th><th>Geplaatst</th>
+  <th></th><th>Address</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
+  <th>Rooms</th><th>Energy</th><th>Distance</th><th>Floor plan</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(body_rows)}
@@ -227,10 +252,46 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </table>
 <script>
 const tbody = document.querySelector('#t tbody');
+const ratings = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
+const hideRated = document.getElementById('hideRated');
+const hideNo = document.getElementById('hideNo');
+
+function saveRatings() {{ localStorage.setItem('funda-ratings', JSON.stringify(ratings)); }}
+
+function listingRows() {{ return [...tbody.querySelectorAll('tr[data-id]')]; }}
+
+function applyRatings() {{
+  for (const tr of listingRows()) {{
+    const s = ratings[tr.dataset.id];
+    tr.querySelectorAll('.rate button').forEach(b =>
+      b.classList.toggle('on', s !== undefined && +b.dataset.s === s));
+    tr.querySelector('td.score').dataset.sort = s === undefined ? -1 : s;
+  }}
+}}
+
+function applyFilters() {{
+  let visible = 0, rated = 0;
+  for (const tr of listingRows()) {{
+    const s = ratings[tr.dataset.id];
+    if (s !== undefined) rated++;
+    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0);
+    tr.style.display = hide ? 'none' : '';
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('desc-row')) next.style.display = hide ? 'none' : '';
+    if (!hide) visible++;
+  }}
+  document.getElementById('counts').textContent = `${{visible}} shown · ${{rated}} rated`;
+}}
+
+hideRated.addEventListener('change', applyFilters);
+hideNo.addEventListener('change', applyFilters);
+
 document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click', () => {{
-  const rows = [...tbody.querySelectorAll('tr:not(.desc-row)')];
   document.querySelectorAll('.desc-row').forEach(r => r.remove());
-  const dir = th.dataset.dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+  const rows = listingRows();
+  const dir = th.dataset.dir = th.dataset.dir
+    ? (th.dataset.dir === 'asc' ? 'desc' : 'asc')
+    : (th.dataset.defdesc ? 'desc' : 'asc');
   rows.sort((a, b) => {{
     const av = a.cells[i]?.dataset.sort ?? a.cells[i]?.textContent.trim() ?? '';
     const bv = b.cells[i]?.dataset.sort ?? b.cells[i]?.textContent.trim() ?? '';
@@ -240,18 +301,46 @@ document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click
   }});
   rows.forEach(r => tbody.appendChild(r));
 }}));
+
 tbody.addEventListener('click', e => {{
+  const btn = e.target.closest('.rate button');
+  if (btn) {{
+    const tr = btn.closest('tr');
+    const s = +btn.dataset.s;
+    if (ratings[tr.dataset.id] === s) delete ratings[tr.dataset.id];
+    else ratings[tr.dataset.id] = s;
+    saveRatings(); applyRatings(); applyFilters();
+    return;
+  }}
   const tr = e.target.closest('tr');
   if (!tr || tr.classList.contains('desc-row') || e.target.closest('a')) return;
   const next = tr.nextElementSibling;
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
-  const desc = tr.dataset.desc;
-  if (!desc) return;
+  const desc = tr.dataset.desc || '';
+  const fps = (tr.dataset.fp || '').split(' ').filter(Boolean);
+  const fpHtml = fps.length
+    ? fps.map(u => `<img src="${{u}}" loading="lazy" alt="floor plan">`).join('')
+    : '<span class="none">no floor plan</span>';
   const row = document.createElement('tr');
   row.className = 'desc-row';
-  row.innerHTML = `<td colspan="12">${{desc.replace(/</g, '&lt;')}}</td>`;
+  const cell = document.createElement('td');
+  cell.colSpan = 13;
+  const fold = document.createElement('div');
+  fold.className = 'fold';
+  const descDiv = document.createElement('div');
+  descDiv.className = 'fold-desc';
+  descDiv.textContent = desc;
+  const fpDiv = document.createElement('div');
+  fpDiv.className = 'fold-fp';
+  fpDiv.innerHTML = fpHtml;
+  fold.append(descDiv, fpDiv);
+  cell.append(fold);
+  row.append(cell);
   tr.after(row);
 }});
+
+applyRatings();
+applyFilters();
 </script>
 </body>
 </html>
