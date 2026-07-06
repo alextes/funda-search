@@ -5,7 +5,9 @@
 - [x] Proof of concept: get listing data out of funda (via pyfunda / mobile API — see README)
 - [x] Track seen listings, only fetch new ones (`data/listings.json`)
 - [x] HTML overview: photo, address, wijk/buurt, price, m², €/m², rooms, energy label, distance from center, floor plan link, description
-- [x] Sortable columns, expandable descriptions, "nieuw" badge for listings first seen today
+- [x] Sortable columns, expandable descriptions, "new" badge for listings first seen today
+- [x] Rate listings 0–3 (0 = reviewed, not interesting), persisted in localStorage; filters to hide rated / hide 0-rated; sortable score column
+- [x] Fold-out shows description (left) next to floor plan image (right)
 
 ## Planned
 
@@ -13,7 +15,7 @@
 - [ ] **Floor plan display** — download floor plan images and show them inline in the overview instead of just linking out
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
-- [ ] **Dismiss/shortlist** — mark listings as "not interesting" or "shortlist" so the overview stays clean
+- [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`
 - [ ] **Travel time** — realistic bike/transit time to chosen points (work, center) instead of straight-line distance
 - [ ] **Price history / sold data** — pyfunda exposes price history; flag price drops
 - [ ] **Notifications** — ping (email/Telegram) when a new listing matches the criteria
