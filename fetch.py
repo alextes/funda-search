@@ -336,7 +336,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   #grid header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }}
   #grid header span {{ font-weight: 600; }}
   #grid header button {{ border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
-  #grid .cells {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .5rem; }}
+  #grid .cells {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }}
   #grid .cells img {{ width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 4px; cursor: pointer; display: block; }}
   #show {{ position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 20; display: flex; align-items: center; justify-content: center; }}
   #grid[hidden], #show[hidden] {{ display: none; }}
@@ -489,7 +489,7 @@ function openGrid(tr) {{
   cells.innerHTML = '';
   photos.forEach((url, i) => {{
     const img = document.createElement('img');
-    img.src = url.replace('.jpg', '_720x480.jpg');
+    img.src = url.replace('.jpg', '_1080.jpg');
     img.loading = 'lazy';
     img.addEventListener('click', () => openShow(i));
     cells.append(img);
