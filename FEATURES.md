@@ -18,7 +18,7 @@
 ## Planned
 
 - [x] ~~Daily morning search~~ superseded: `server.py` keeps the list at most `fetch_interval_seconds` (60s) old while running
-- [x] Deployed to exe.dev: https://donut-chaise.exe.xyz (behind exe.dev login); tooling in the private funda-search-deploy repo
+- [x] Deployed to exe.dev: https://donut-chaise.exe.xyz (public); tooling in the private funda-search-deploy repo
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
 - [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`
