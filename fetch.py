@@ -226,7 +226,6 @@ def backfill_floorplans(listings: dict[str, dict]) -> None:
 
 
 def render(config: dict, listings: dict[str, dict]) -> None:
-    today = date.today().isoformat()
     filters = config.get("filters", {})
     min_area = filters.get("min_area")
     min_price = filters.get("min_price")
@@ -254,14 +253,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 
     body_rows = []
     for l in rows:
-        is_new = l.get("first_seen") == today
         fps = l.get("floorplans") or []
         fp_urls = " ".join(fp["thumbnail_url"] for fp in fps)
-        fp_cell = (
-            f'<td><a href="{html.escape(fps[0]["thumbnail_url"])}" target="_blank">floor plan</a></td>'
-            if fps
-            else "<td>–</td>"
-        )
         photo = (
             f'<img src="{html.escape(l["photo_url"])}" loading="lazy" alt="">'
             if l.get("photo_url")
@@ -272,10 +265,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
+            f"""<tr data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
   <td class="photo">{photo}</td>
-  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>
-      {'<span class="badge">new</span>' if is_new else ''}</td>
+  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a></td>
   {td(l.get('wijk'))}
   {td(l.get('neighbourhood'))}
   <td data-sort="{l.get('price') or 0}">{price}</td>
@@ -284,7 +276,6 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   {td(l.get('rooms'))}
   {td(l.get('energy_label'))}
   <td data-sort="{l.get('distance_km') or 999}">{l.get('distance_km') if l.get('distance_km') is not None else '–'} km</td>
-  {fp_cell}
   <td class="listed" data-date="{html.escape(l.get('publication_date') or '')}" title="{html.escape(l.get('publication_date') or '')}">–</td>
   <td class="score" data-sort="-1"><div class="rate">
     <button data-s="0" title="reviewed, not interesting">✕</button>
@@ -311,8 +302,6 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   th, td {{ text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
   th {{ cursor: pointer; user-select: none; position: sticky; top: 0; background: #fff; }}
   th:hover {{ color: #f7a100; }}
-  tr.new {{ background: #fffbe8; }}
-  .badge {{ background: #f7a100; color: #fff; border-radius: 3px; font-size: .7rem; padding: .1rem .35rem; margin-left: .4rem; }}
   .photo img {{ width: 72px; height: 48px; object-fit: cover; border-radius: 4px; display: block; }}
   .addr a {{ color: #0071b3; text-decoration: none; }} .addr a:hover {{ text-decoration: underline; }}
   tr {{ cursor: pointer; }}
@@ -329,9 +318,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .fold-right iframe {{ width: 100%; height: 320px; border: 1px solid #e5e5e5; border-radius: 4px; display: block; }}
   .fold-right .maplink {{ font-size: .8rem; display: inline-block; margin: .3rem 0 .8rem; color: #0071b3; }}
   .fold-right img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
-  .fold-right .none {{ color: #999; }}
+  .fold-right .none {{ color: #999; margin-top: .5rem; }}
   kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
-  tr.sel > td {{ background: #eaf4fb; }} tr.sel.new > td {{ background: #f2f0d8; }}
+  tr.sel > td {{ background: #eaf4fb; }}
   #grid {{ position: fixed; inset: 0; background: rgba(255,255,255,.98); z-index: 10; overflow-y: auto; padding: 1rem; }}
   #grid header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }}
   #grid header span {{ font-weight: 600; }}
@@ -357,7 +346,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <table id="t">
 <thead><tr>
   <th></th><th>Address</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>Rooms</th><th>Energy</th><th>Distance</th><th>Floor plan</th><th>Listed</th><th data-defdesc="1">Score</th>
+  <th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(body_rows)}
@@ -444,7 +433,7 @@ function toggleFold(tr) {{
   const fps = (tr.dataset.fp || '').split(' ').filter(Boolean);
   const fpHtml = fps.length
     ? fps.map(u => `<img src="${{u}}" loading="lazy" alt="floor plan">`).join('')
-    : '<span class="none">no floor plan</span>';
+    : '<div class="none">no floor plan</div>';
   const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
   let mapHtml = '';
   if (!isNaN(lat) && !isNaN(lon)) {{
@@ -458,7 +447,7 @@ function toggleFold(tr) {{
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
-  cell.colSpan = 13;
+  cell.colSpan = 12;
   const fold = document.createElement('div');
   fold.className = 'fold';
   const descDiv = document.createElement('div');
