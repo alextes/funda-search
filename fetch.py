@@ -295,7 +295,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     body_rows = []
     for l in rows:
         fps = l.get("floorplans") or []
-        fp_urls = " ".join(fp["thumbnail_url"] for fp in fps)
+        fp_data = json.dumps(
+            [{"img": fp["thumbnail_url"], "embed": fp.get("embed_url")} for fp in fps]
+        )
         photo = (
             f'<img src="{html.escape(l["photo_url"])}" loading="lazy" alt="">'
             if l.get("photo_url")
@@ -306,7 +308,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
+            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   {td(l.get('wijk'))}
@@ -357,6 +359,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .fold-desc {{ flex: 1 1 50%; color: #444; white-space: pre-line; max-width: 50%; }}
   .fold-right {{ flex: 1 1 50%; }}
   .fold-right iframe {{ width: 100%; height: 320px; border: 1px solid #e5e5e5; border-radius: 4px; display: block; }}
+  .fold-right iframe.fp-embed {{ height: 600px; margin-bottom: .5rem; }}
   .fold-right .maplink {{ font-size: .8rem; display: inline-block; margin: .3rem 0 .8rem; color: #0071b3; }}
   .fold-right img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
   .fold-right .none {{ color: #999; margin-top: .5rem; }}
@@ -512,9 +515,14 @@ function toggleFold(tr) {{
   const next = tr.nextElementSibling;
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
-  const fps = (tr.dataset.fp || '').split(' ').filter(Boolean);
+  const fps = JSON.parse(tr.dataset.fp || '[]');
+  // interactive Floorplanner embed when funda has one (the static thumbnail is
+  // only 900px); otherwise the full-res detected image, click-through to open
   const fpHtml = fps.length
-    ? fps.map(u => `<img src="${{u}}" loading="lazy" alt="floor plan">`).join('')
+    ? fps.map(f => f.embed
+        ? `<iframe class="fp-embed" loading="lazy" src="${{f.embed}}"></iframe>`
+        : `<a href="${{f.img}}" target="_blank"><img src="${{f.img}}" loading="lazy" alt="floor plan"></a>`
+      ).join('')
     : '<div class="none">no floor plan</div>';
   const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
   let mapHtml = '';

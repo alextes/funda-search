@@ -33,6 +33,7 @@
 ## Ideas / someday
 
 - [ ] **Overbidding estimate per neighborhood** — funda's sold data (pyfunda supports `category="sold"` + price history) could show typical sold-vs-asking deltas per wijk, to estimate the *real* cost of a listing
+- [ ] **Neighborhood €/m² benchmark** — even without overbidding data, an average asking €/m² per wijk/buurt (from our own accumulating listing data, or a broader sold-listings sweep) would show whether a listing's €/m² is a good deal for its area
 
 - [ ] Score listings against a personal weighting (€/m², location, outdoor space, ...)
 - [ ] Map view of active listings
