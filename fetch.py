@@ -188,7 +188,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   {td(l.get('energy_label'))}
   <td data-sort="{l.get('distance_km') or 999}">{l.get('distance_km') if l.get('distance_km') is not None else '–'} km</td>
   {fp_cell}
-  {td(l.get('publication_date'))}
+  <td class="listed" data-date="{html.escape(l.get('publication_date') or '')}" title="{html.escape(l.get('publication_date') or '')}">–</td>
   <td class="score" data-sort="-1"><div class="rate">
     <button data-s="0" title="reviewed, not interesting">✕</button>
     <button data-s="1">1</button>
@@ -253,6 +253,14 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <script>
 const tbody = document.querySelector('#t tbody');
 const ratings = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
+
+for (const cell of document.querySelectorAll('td.listed')) {{
+  const iso = cell.dataset.date;
+  if (!iso) {{ cell.dataset.sort = 9999; continue; }}
+  const days = Math.max(0, Math.round((Date.now() - new Date(iso + 'T00:00')) / 86400000));
+  cell.textContent = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${{days}}d ago`;
+  cell.dataset.sort = days;
+}}
 const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
 
