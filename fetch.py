@@ -332,6 +332,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   #grid header button {{ border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
   #grid .cells {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .5rem; }}
   #grid .cells img {{ width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 4px; cursor: pointer; display: block; }}
+  #show {{ position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 20; display: flex; align-items: center; justify-content: center; }}
+  #show img {{ max-width: 96vw; max-height: 92vh; object-fit: contain; cursor: pointer; }}
+  #show .bar {{ position: absolute; top: .8rem; right: 1rem; display: flex; gap: 1rem; align-items: center; color: #ddd; font-size: .85rem; }}
+  #show .bar button {{ border: 1px solid #777; background: transparent; color: #ddd; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
 </style>
 </head>
 <body>
@@ -355,6 +359,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <div id="grid" hidden>
   <header><span id="gridTitle"></span><button id="gridClose">close (esc)</button></header>
   <div class="cells"></div>
+</div>
+<div id="show" hidden>
+  <div class="bar"><span id="showCounter"></span><button id="showClose">close (esc)</button></div>
+  <img id="showImg" alt="">
 </div>
 <script>
 const tbody = document.querySelector('#t tbody');
@@ -462,21 +470,23 @@ function toggleFold(tr) {{
 
 // --- photo grid ---
 const grid = document.getElementById('grid');
+let gridPhotos = [];
 
 function openGrid(tr) {{
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
   if (!photos.length) return;
+  gridPhotos = photos;
   document.getElementById('gridTitle').textContent =
     tr.querySelector('.addr a').textContent.trim() + ` · ${{photos.length}} photos`;
   const cells = grid.querySelector('.cells');
   cells.innerHTML = '';
-  for (const url of photos) {{
+  photos.forEach((url, i) => {{
     const img = document.createElement('img');
     img.src = url.replace('.jpg', '_720x480.jpg');
     img.loading = 'lazy';
-    img.addEventListener('click', () => window.open(url, '_blank'));
+    img.addEventListener('click', () => openShow(i));
     cells.append(img);
-  }}
+  }});
   grid.hidden = false;
   grid.scrollTop = 0;
   document.body.style.overflow = 'hidden';
@@ -488,6 +498,33 @@ function closeGrid() {{
 }}
 
 document.getElementById('gridClose').addEventListener('click', closeGrid);
+
+// --- slideshow (over the grid) ---
+const show = document.getElementById('show');
+const showImg = document.getElementById('showImg');
+let showIdx = 0;
+
+function renderShow() {{
+  showImg.src = gridPhotos[showIdx];
+  document.getElementById('showCounter').textContent = `${{showIdx + 1}} / ${{gridPhotos.length}}`;
+  for (const d of [1, -1]) {{
+    new Image().src = gridPhotos[(showIdx + d + gridPhotos.length) % gridPhotos.length];
+  }}
+}}
+
+function openShow(i) {{ showIdx = i; show.hidden = false; renderShow(); }}
+function closeShow() {{ show.hidden = true; showImg.src = ''; }}
+function moveShow(delta) {{
+  showIdx = (showIdx + delta + gridPhotos.length) % gridPhotos.length;
+  renderShow();
+}}
+
+document.getElementById('showClose').addEventListener('click', closeShow);
+showImg.addEventListener('click', e => {{
+  const third = showImg.getBoundingClientRect();
+  moveShow(e.clientX < third.left + third.width / 3 ? -1 : 1);
+}});
+show.addEventListener('click', e => {{ if (e.target === show) closeShow(); }});
 
 tbody.addEventListener('click', e => {{
   const btn = e.target.closest('.rate button');
@@ -524,6 +561,14 @@ function move(delta) {{
 
 document.addEventListener('keydown', e => {{
   if (e.target.matches?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!show.hidden) {{
+    switch (e.key) {{
+      case 'ArrowRight': case 'j': case ' ': e.preventDefault(); moveShow(1); break;
+      case 'ArrowLeft': case 'k': e.preventDefault(); moveShow(-1); break;
+      case 'Escape': e.preventDefault(); closeShow(); break;
+    }}
+    return;
+  }}
   if (!grid.hidden) {{
     if (e.key === 'Escape' || e.key === 'p') {{ e.preventDefault(); closeGrid(); }}
     return;
