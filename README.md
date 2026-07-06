@@ -17,7 +17,20 @@ The mobile API gives us everything: price, floor area, rooms, energy label, wijk
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+```
 
+**Server mode** (the normal way): serves the overview and keeps it fresh — a background
+loop re-fetches whenever the data is older than `fetch_interval_seconds` (default 60s).
+
+```bash
+.venv/bin/python server.py                     # http://127.0.0.1:8000
+.venv/bin/python server.py --host 0.0.0.0 --port 8000 --interval 60
+curl localhost:8000/healthz                    # last fetch time, count, last error
+```
+
+**One-shot mode**:
+
+```bash
 .venv/bin/python fetch.py               # fetch new listings + regenerate overview.html
 .venv/bin/python fetch.py --render-only # just regenerate overview.html
 open overview.html

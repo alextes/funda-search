@@ -74,9 +74,15 @@ def load_listings() -> dict[str, dict]:
     return {}
 
 
+def write_atomic(path: Path, text: str) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+
+
 def save_listings(listings: dict[str, dict]) -> None:
     DATA_FILE.parent.mkdir(exist_ok=True)
-    DATA_FILE.write_text(json.dumps(listings, indent=1, ensure_ascii=False))
+    write_atomic(DATA_FILE, json.dumps(listings, indent=1, ensure_ascii=False))
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -606,7 +612,7 @@ applyFilters();
 </body>
 </html>
 """
-    OVERVIEW_FILE.write_text(page)
+    write_atomic(OVERVIEW_FILE, page)
     print(f"wrote {OVERVIEW_FILE.relative_to(ROOT)} with {len(rows)} listings")
 
 

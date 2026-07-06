@@ -17,7 +17,8 @@
 
 ## Planned
 
-- [ ] **Daily morning search** — run `fetch.py` every morning automatically (launchd/cron or a scheduled Claude task) and surface what's new
+- [x] ~~Daily morning search~~ superseded: `server.py` keeps the list at most `fetch_interval_seconds` (60s) old while running
+- [ ] **Deploy to exe.dev** — run `server.py` on the VM so it's always on
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
 - [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`
