@@ -35,10 +35,14 @@ SESSION_MAX_AGE_S = 30 * 24 * 3600
 
 PASSWORD = os.environ.get("FUNDA_SEARCH_PASSWORD")
 RATINGS_FILE = core.ROOT / "data" / "ratings.json"
+# false-positive floor plan flags (id -> [image urls]): hides detector misfires
+# in the UI and doubles as a labeled mistake-set for tuning the detector
+FP_FLAGS_FILE = core.ROOT / "data" / "fp_flags.json"
 SECRET_FILE = core.ROOT / "data" / ".session-secret"
 
 state = {"last_fetch": None, "fetch_count": 0, "last_error": None, "last_status_refresh": None}
 ratings_lock = threading.Lock()
+fp_flags_lock = threading.Lock()
 
 LOGIN_PAGE = """<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,6 +79,12 @@ def session_token() -> str:
 def load_ratings() -> dict:
     if RATINGS_FILE.exists():
         return json.loads(RATINGS_FILE.read_text())
+    return {}
+
+
+def load_fp_flags() -> dict:
+    if FP_FLAGS_FILE.exists():
+        return json.loads(FP_FLAGS_FILE.read_text())
     return {}
 
 
@@ -150,6 +160,10 @@ class Handler(BaseHTTPRequestHandler):
             with ratings_lock:
                 body = json.dumps(load_ratings()).encode()
             self.respond(200, "application/json; charset=utf-8", body)
+        elif path == "/fpflags.json":
+            with fp_flags_lock:
+                body = json.dumps(load_fp_flags()).encode()
+            self.respond(200, "application/json; charset=utf-8", body)
         elif path == "/listings.json":
             self.respond(200, "application/json; charset=utf-8", core.DATA_FILE.read_bytes())
         else:
@@ -197,6 +211,31 @@ class Handler(BaseHTTPRequestHandler):
                     ratings[listing_id] = score
                 RATINGS_FILE.parent.mkdir(exist_ok=True)
                 core.write_atomic(RATINGS_FILE, json.dumps(ratings, indent=1))
+            self.respond(204, "text/plain", b"")
+        elif path == "/flag-fp":
+            try:
+                data = json.loads(body)
+                listing_id = str(data["id"])
+                url = str(data["url"])
+                flagged = data["flagged"]
+                if not isinstance(flagged, bool):
+                    raise ValueError("flagged must be a bool")
+            except (ValueError, KeyError, json.JSONDecodeError) as e:
+                self.respond(400, "text/plain", f"bad request: {e}".encode())
+                return
+            with fp_flags_lock:
+                flags = load_fp_flags()
+                urls = flags.get(listing_id, [])
+                if flagged and url not in urls:
+                    urls.append(url)
+                if not flagged:
+                    urls = [u for u in urls if u != url]
+                if urls:
+                    flags[listing_id] = urls
+                else:
+                    flags.pop(listing_id, None)
+                FP_FLAGS_FILE.parent.mkdir(exist_ok=True)
+                core.write_atomic(FP_FLAGS_FILE, json.dumps(flags, indent=1))
             self.respond(204, "text/plain", b"")
         else:
             self.respond(404, "text/plain", b"not found")

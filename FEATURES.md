@@ -13,6 +13,8 @@
 - [x] Photo grid per listing (click row thumbnail, fold-out link, or `p`); grid image click opens full-res original
 - [x] Keyboard shortcuts: `j`/`k` move, `enter` fold, `p` photos, `x`/`0`–`3` rate (auto-advances when the row hides), `f` open funda, `esc` close
 - [x] Minimal in-page slideshow over the grid: `←`/`→` or `j`/`k` navigate (wraps), click right/left side of the photo for next/prev, `esc` back to grid
+- [x] `j`/`k` (or `↓`/`↑`) smooth-scroll the photo grid
+- [x] "Not a floor plan" flag on detected plans: hover button hides misfires (with undo), stored server-side (`data/fp_flags.json`) — doubles as a labeled mistake-set for tuning the detector later
 - [x] Price band filter (config `min_price`/`max_price`, applied to search and render)
 
 ## Planned

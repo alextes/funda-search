@@ -296,7 +296,14 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     for l in rows:
         fps = l.get("floorplans") or []
         fp_data = json.dumps(
-            [{"img": fp["thumbnail_url"], "embed": fp.get("embed_url")} for fp in fps]
+            [
+                {
+                    "img": fp["thumbnail_url"],
+                    "embed": fp.get("embed_url"),
+                    "detected": fp.get("detected", False),
+                }
+                for fp in fps
+            ]
         )
         photo = (
             f'<img src="{html.escape(l["photo_url"])}" loading="lazy" alt="">'
@@ -363,6 +370,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .fold-right .maplink {{ font-size: .8rem; display: inline-block; margin: .3rem 0 .8rem; color: #0071b3; }}
   .fold-right img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
   .fold-right .none {{ color: #999; margin-top: .5rem; }}
+  .fp-wrap {{ position: relative; }}
+  .fp-wrap .fp-flag {{ position: absolute; top: .5rem; right: .5rem; border: 1px solid #ccc; background: rgba(255,255,255,.92);
+                      color: #666; border-radius: 4px; padding: .25rem .5rem; font-size: .75rem; cursor: pointer; opacity: 0; }}
+  .fp-wrap:hover .fp-flag {{ opacity: 1; }}
+  .fp-wrap .fp-flag:hover {{ border-color: #c00; color: #c00; }}
   kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
   tr.sel > td {{ background: #eaf4fb; }}
   tr[data-status="negotiations"] {{ opacity: .55; }}
@@ -441,12 +453,38 @@ function saveRating(id, score) {{
   else localStorage.setItem('funda-ratings', JSON.stringify(ratings));
 }}
 
+// false-positive floor plan flags: id -> [image urls]; same server-first,
+// localStorage-fallback model as ratings
+let fpFlags = {{}};
+let serverFlags = false;
+
+function saveFpFlag(id, url, flagged) {{
+  const urls = fpFlags[id] || (fpFlags[id] = []);
+  if (flagged && !urls.includes(url)) urls.push(url);
+  if (!flagged) fpFlags[id] = urls.filter(u => u !== url);
+  if (!fpFlags[id].length) delete fpFlags[id];
+  if (serverFlags) {{
+    fetch('flag-fp', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{id, url, flagged}}),
+    }}).catch(() => {{}});
+  }} else {{
+    localStorage.setItem('funda-fpflags', JSON.stringify(fpFlags));
+  }}
+}}
+
 async function initRatings() {{
   const local = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
   try {{
     const res = await fetch('ratings.json', {{cache: 'no-store'}});
     if (res.ok) {{ ratings = await res.json(); serverRatings = true; }}
   }} catch (e) {{}}
+  try {{
+    const res = await fetch('fpflags.json', {{cache: 'no-store'}});
+    if (res.ok) {{ fpFlags = await res.json(); serverFlags = true; }}
+  }} catch (e) {{}}
+  if (!serverFlags) fpFlags = JSON.parse(localStorage.getItem('funda-fpflags') || '{{}}');
   if (serverRatings) {{
     // one-time migration: push local ratings the server doesn't know yet
     for (const [id, s] of Object.entries(local)) {{
@@ -515,13 +553,20 @@ function toggleFold(tr) {{
   const next = tr.nextElementSibling;
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
-  const fps = JSON.parse(tr.dataset.fp || '[]');
+  const id = tr.dataset.id;
+  const flagged = fpFlags[id] || [];
+  const fps = JSON.parse(tr.dataset.fp || '[]').filter(f => !flagged.includes(f.img));
   // interactive Floorplanner embed when funda has one (the static thumbnail is
-  // only 900px); otherwise the full-res detected image, click-through to open
+  // only 900px); otherwise the full-res detected image, click-through to open.
+  // detected plans come from a heuristic, so they carry a "not a floor plan"
+  // flag button — flags are stored server-side to hide misfires and to collect
+  // labeled mistakes for tuning the detector
   const fpHtml = fps.length
     ? fps.map(f => f.embed
         ? `<iframe class="fp-embed" loading="lazy" src="${{f.embed}}"></iframe>`
-        : `<a href="${{f.img}}" target="_blank"><img src="${{f.img}}" loading="lazy" alt="floor plan"></a>`
+        : `<div class="fp-wrap"><a href="${{f.img}}" target="_blank"><img src="${{f.img}}" loading="lazy" alt="floor plan"></a>${{
+            f.detected ? `<button class="fp-flag" data-url="${{f.img}}" title="hide and record as a detector mistake">not a floor plan ✕</button>` : ''
+          }}</div>`
       ).join('')
     : '<div class="none">no floor plan</div>';
   const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
@@ -548,6 +593,22 @@ function toggleFold(tr) {{
   fpDiv.innerHTML = photosLink + mapHtml + fpHtml;
   const gl = fpDiv.querySelector('[data-open-grid]');
   if (gl) gl.addEventListener('click', e => {{ e.preventDefault(); openGrid(tr); }});
+  function bindFlag(wrap) {{
+    wrap.querySelector('.fp-flag')?.addEventListener('click', e => {{
+      e.preventDefault();
+      const url = wrap.querySelector('.fp-flag').dataset.url;
+      saveFpFlag(id, url, true);
+      wrap.innerHTML = '<div class="none">flagged as not a floor plan · <a href="#">undo</a></div>';
+      wrap.querySelector('a').addEventListener('click', e2 => {{
+        e2.preventDefault();
+        saveFpFlag(id, url, false);
+        wrap.innerHTML = `<a href="${{url}}" target="_blank"><img src="${{url}}" loading="lazy" alt="floor plan"></a>
+          <button class="fp-flag" data-url="${{url}}" title="hide and record as a detector mistake">not a floor plan ✕</button>`;
+        bindFlag(wrap);
+      }});
+    }});
+  }}
+  fpDiv.querySelectorAll('.fp-wrap').forEach(bindFlag);
   fold.append(descDiv, fpDiv);
   cell.append(fold);
   row.append(cell);
@@ -656,7 +717,13 @@ document.addEventListener('keydown', e => {{
     return;
   }}
   if (!grid.hidden) {{
-    if (e.key === 'Escape' || e.key === 'p') {{ e.preventDefault(); closeGrid(); }}
+    switch (e.key) {{
+      case 'Escape': case 'p': e.preventDefault(); closeGrid(); break;
+      case 'j': case 'ArrowDown':
+        e.preventDefault(); grid.scrollBy({{top: grid.clientHeight * 0.8, behavior: 'smooth'}}); break;
+      case 'k': case 'ArrowUp':
+        e.preventDefault(); grid.scrollBy({{top: -grid.clientHeight * 0.8, behavior: 'smooth'}}); break;
+    }}
     return;
   }}
   const rated = () => {{

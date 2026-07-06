@@ -2,5 +2,6 @@
 __pycache__/
 .DS_Store
 data/ratings.json
+data/fp_flags.json
 data/.session-secret
 *.tmp
