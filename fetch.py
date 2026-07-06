@@ -175,7 +175,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         ppm2 = f"€ {l['price_per_m2']:,}".replace(",", ".") if l.get("price_per_m2") else "–"
         desc = html.escape(l.get("description") or "")
         body_rows.append(
-            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}">
+            f"""<tr class="{'new' if is_new else ''}" data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>
       {'<span class="badge">new</span>' if is_new else ''}</td>
@@ -228,9 +228,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   tr.desc-row {{ cursor: auto; }} tr.desc-row > td {{ white-space: normal; background: #fafafa; }}
   .fold {{ display: flex; gap: 1.5rem; align-items: flex-start; }}
   .fold-desc {{ flex: 1 1 50%; color: #444; white-space: pre-line; max-width: 50%; }}
-  .fold-fp {{ flex: 1 1 50%; }}
-  .fold-fp img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
-  .fold-fp .none {{ color: #999; }}
+  .fold-right {{ flex: 1 1 50%; }}
+  .fold-right iframe {{ width: 100%; height: 320px; border: 1px solid #e5e5e5; border-radius: 4px; display: block; }}
+  .fold-right .maplink {{ font-size: .8rem; display: inline-block; margin: .3rem 0 .8rem; color: #0071b3; }}
+  .fold-right img {{ max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: .5rem; display: block; }}
+  .fold-right .none {{ color: #999; }}
 </style>
 </head>
 <body>
@@ -329,6 +331,13 @@ tbody.addEventListener('click', e => {{
   const fpHtml = fps.length
     ? fps.map(u => `<img src="${{u}}" loading="lazy" alt="floor plan">`).join('')
     : '<span class="none">no floor plan</span>';
+  const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
+  let mapHtml = '';
+  if (!isNaN(lat) && !isNaN(lon)) {{
+    const bbox = `${{lon - 0.01}},${{lat - 0.006}},${{lon + 0.01}},${{lat + 0.006}}`;
+    mapHtml = `<iframe loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${{bbox}}&layer=mapnik&marker=${{lat}},${{lon}}"></iframe>
+      <a class="maplink" href="https://www.google.com/maps?q=${{lat}},${{lon}}" target="_blank">open in Google Maps</a>`;
+  }}
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
@@ -339,8 +348,8 @@ tbody.addEventListener('click', e => {{
   descDiv.className = 'fold-desc';
   descDiv.textContent = desc;
   const fpDiv = document.createElement('div');
-  fpDiv.className = 'fold-fp';
-  fpDiv.innerHTML = fpHtml;
+  fpDiv.className = 'fold-right';
+  fpDiv.innerHTML = mapHtml + fpHtml;
   fold.append(descDiv, fpDiv);
   cell.append(fold);
   row.append(cell);
