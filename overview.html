@@ -33,6 +33,8 @@
   .fold-right .none { color: #999; margin-top: .5rem; }
   kbd { background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }
   tr.sel > td { background: #eaf4fb; }
+  tr[data-status="negotiations"] { opacity: .55; }
+  .uo-tag { background: #e5e5e5; color: #555; border-radius: 3px; font-size: .7rem; padding: .1rem .35rem; margin-left: .4rem; }
   #grid { position: fixed; inset: 0; background: rgba(255,255,255,.98); z-index: 10; overflow-y: auto; padding: 1rem; }
   #grid header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }
   #grid header span { font-weight: 600; }
@@ -48,11 +50,12 @@
 </head>
 <body>
 <h1>funda-search · amsterdam</h1>
-<p class="meta">46 listings · generated 2026-07-06 15:24 · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
+<p class="meta">45 listings · generated 2026-07-06 15:49 · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
+  <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
   <span id="counts" class="meta"></span>
 </div>
 <table id="t">
@@ -61,7 +64,7 @@
   <th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
-<tr data-id="8071924" data-desc="Ruim 3-kamer appartement van circa 90 m² met twee slaapkamers, loggia op het zuidwesten, eigen parkeerplaats en energielabel A
+<tr data-id="8071924" data-status="available" data-desc="Ruim 3-kamer appartement van circa 90 m² met twee slaapkamers, loggia op het zuidwesten, eigen parkeerplaats en energielabel A
 
 Op een uitstekende locatie in Amsterdam-Zuidoost bieden wij deze goed onderhouden 3-kamer appartement aan. De woning beschikt over een woonoppervlakte van circa 90 m², verdeeld over twee woonlagen, en is voorzien van een eigen parkeerplaats in de afgesloten parkeergarage, een externe berging en een zonnige loggia op het zuidwesten.
 
@@ -135,7 +138,7 @@ Dit aantrekkelijke appartement combineert comfortabel wonen, praktische leefruim
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8073069" data-desc="Wonen op historische grond, met de ruimte van nu.
+<tr data-id="8073069" data-status="available" data-desc="Wonen op historische grond, met de ruimte van nu.
 
 Droom jij van een royaal appartement met een uniek verhaal? Zoek je een groene woonomgeving met alle stadse voorzieningen binnen handbereik? En wil je wonen op een plek waar historie en modern wooncomfort samenkomen?
 
@@ -221,7 +224,7 @@ Deze aanmelding en de verkoopbrochure zijn met de grootste zorgvuldigheid sameng
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072654" data-desc="Vaartstraat 48, Amsterdam
+<tr data-id="8072654" data-status="available" data-desc="Vaartstraat 48, Amsterdam
 Karakteristieke dubbele bovenwoning met twee balkons in de geliefde Schinkelbuurt, Oud-Zuid.
 
 Op een mooie locatie in Amsterdam Oud-Zuid bevindt zich deze charmante en karakteristieke dubbele bovenwoning, gelegen op de derde en vierde verdieping van een fraai pand. De woning beschikt over twee balkons, een praktische indeling en biedt een unieke combinatie van rust, ruimte en het bruisende stadsleven binnen handbereik.
@@ -323,80 +326,7 @@ Transfer date by mutual agreement; quick completion possible." data-fp="https://
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072483" data-desc="Wij mogen u met trots dit sfeervolle industriële loftappartement van 84 m² aanbieden op EIGEN GROND, gelegen op een fantastische locatie midden in het centrum van Amsterdam. De woning bevindt zich op de tweede verdieping van een Rijksmonumentaal pakhuis uit 1721 en kijkt aan de achterzijde uit over de levendige Haarlemmerstraat. Een appartement met karakter, geschiedenis én alle comfort van nu — en met energielabel A bovendien verrassend energiezuinig voor een pand van deze leeftijd.
-
-INDELING 
-Via de gemeenschappelijke entree bereikt u het appartement op de tweede verdieping. Binnenkomen betekent meteen verliefd worden: de originele houten balken en de karakteristieke bakstenen muur geven dit appartement een echte pakhuissfeer. Links bij binnenkomst vindt u de slaapkamer, rustig gelegen aan de binnentuin. Naast de slaapkamer tref je de eetkamer waar vrij eenvoudig een tweede slakker gecreëerd kan worden en de ruimte leent zich hier perfect voor. ( Zie tweede plattegrond ) 
-
-Aan de achterzijde ligt de royale woonkamer met open keuken — hét hart van de woning. Dankzij de grote raampartijen en de openslaande deuren naar het Franse balkon stroomt hier volop daglicht naar binnen, met een levendig uitzicht op de Haarlemmerstraat. Genoeg ruimte voor een heerlijke zithoek én een riante eethoek. De keuken (2026) is voorzien van alle gemakken: 4-pits inductiekookplaat, afzuigkap, vaatwasser en koel-vriescombinatie.Centraal in het appartement bevindt zich de badkamer, met wastafel, ligbad en toilet.
-
-Kortom: een licht, karakteristiek appartement waar monumentale sfeer en modern, energiezuinig wooncomfort perfect samenkomen.
-
-OMGEVING 
-Wonen aan de Droogbak is wonen op een unieke plek, precies op de grens van de sfeervolle grachtengordel en de bruisende Haarlemmerbuurt. Om de hoek vindt u de leukste adressen van de stad: van Vinnies en Het Warenhuis tot Boca&#x27;s, allemaal op loopafstand. Zin in rust? Dan wandelt u zo naar het groene Westerpark of langs de pittoreske Brouwersgracht. Ook voor de dagelijkse boodschappen en leuke speciaalzaken hoeft u nauwelijks de deur uit.
-
-De bereikbaarheid is uitstekend: Amsterdam Centraal ligt op loopafstand, waarmee trein, metro, tram en bus binnen handbereik zijn. Met de auto bent u via de S100 of de IJtunnel zo op de Ring A10. Parkeren kan via het gemeentelijke vergunningensysteem of in een van de nabijgelegen garages — voor een centrale locatie als deze een fijn extraatje.
-
-BIJZONDERHEDEN 
-- Woonoppervlakte ca. 84 m² (NEN-2580 certificaat aanwezig)
-- Gelegen op de tweede verdieping
-- EIGEN GROND 
-- Tweede slaapkamer makkelijk te creëren 
-- Energielabel A — energiezuinig wonen in een Rijksmonument
-- Keuken gerenoveerd in 2026
-- Nieuwe PVC-vloer gelegd in 2026
-- Balkon aanwezig
-- Goed georganiseerde VvE
-- Maandelijkse servicekosten: € 123,83
-- Oplevering in overleg, kan snel. 
-
-ENGLISH TEXT______________
-
-We may proudly present this characterful industrial loft apartment of 84 m² on FREEHOLD LAND, located in a fantastic location right in the center of Amsterdam. The home is situated on the second floor of a nationally listed (Rijksmonument) warehouse from 1721 and overlooks the lively Haarlemmerstraat at the rear. An apartment with character, history, and all the comforts of today — and with energy label A, surprisingly energy-efficient for a building of this age.
-
-LAYOUT
-Via the communal entrance you reach the apartment on the second floor. Stepping inside means falling in love instantly: the original wooden beams and the characteristic brick wall give this apartment a genuine warehouse atmosphere. To the left upon entering you will find the bedroom, quietly located overlooking the inner garden. Next to the bedroom is the dining room, where a second bedroom could quite easily be created — the space lends itself perfectly to this. (See second floor plan)
-
-At the rear is the spacious living room with open kitchen — the heart of the home. Thanks to the large window sections and the French doors opening onto the balcony, plenty of daylight streams in here, with a lively view over the Haarlemmerstraat. Enough space for a lovely sitting area as well as a generous dining area. The kitchen (2026) is equipped with every convenience: 4-burner induction hob, extractor hood, dishwasher, and fridge-freezer combination. In the center of the apartment is the bathroom, with washbasin, bathtub, and toilet.
-
-In short: a bright, characterful apartment where monumental atmosphere and modern, energy-efficient living comfort come together perfectly.
-
-SURROUNDINGS
-Living on the Droogbak means living in a unique spot, right on the border of the atmospheric canal ring and the buzzing Haarlemmerbuurt. Around the corner you&#x27;ll find the city&#x27;s best addresses: from Vinnies and Het Warenhuis to Boca&#x27;s, all within walking distance. In the mood for peace and quiet? Then it&#x27;s a short walk to the green Westerpark or along the picturesque Brouwersgracht. For your daily groceries and lovely specialty shops, you barely need to leave the doorstep.
-
-Accessibility is excellent: Amsterdam Centraal station is within walking distance, putting train, metro, tram, and bus all close at hand. By car, you can reach the A10 ring road easily via the S100 or the IJ Tunnel. Parking is available through the municipal permit system or in one of the nearby garages — a nice extra for such a central location.
-
-DETAILS
-- Living area approx. 84 m² (NEN-2580 certificate available)
-- Located on the second floor
-- FREEHOLD LAND
-- Second bedroom easy to create
-- Energy label A — energy-efficient living in a national heritage building
-- Kitchen renovated in 2026
-- New PVC flooring installed in 2026
-- Balcony present
-- Well-organized Owners&#x27; Association (VvE)
-- Monthly service costs: € 123.83
-- Delivery in consultation, can be soon" data-fp="https://cloud.funda.nl/valentina_media/231/646/536.jpg https://cloud.funda.nl/valentina_media/231/646/643.jpg" data-lat="52.379684" data-lon="4.894131" data-photos="https://cloud.funda.nl/valentina_media/231/646/537.jpg https://cloud.funda.nl/valentina_media/231/646/551.jpg https://cloud.funda.nl/valentina_media/231/646/557.jpg https://cloud.funda.nl/valentina_media/231/646/556.jpg https://cloud.funda.nl/valentina_media/231/646/545.jpg https://cloud.funda.nl/valentina_media/231/646/532.jpg https://cloud.funda.nl/valentina_media/231/646/538.jpg https://cloud.funda.nl/valentina_media/231/646/546.jpg https://cloud.funda.nl/valentina_media/231/646/559.jpg https://cloud.funda.nl/valentina_media/231/646/563.jpg https://cloud.funda.nl/valentina_media/231/646/531.jpg https://cloud.funda.nl/valentina_media/231/646/552.jpg https://cloud.funda.nl/valentina_media/231/646/535.jpg https://cloud.funda.nl/valentina_media/231/646/528.jpg https://cloud.funda.nl/valentina_media/231/646/539.jpg https://cloud.funda.nl/valentina_media/231/646/527.jpg https://cloud.funda.nl/valentina_media/231/646/564.jpg https://cloud.funda.nl/valentina_media/231/646/543.jpg https://cloud.funda.nl/valentina_media/231/646/544.jpg https://cloud.funda.nl/valentina_media/231/646/540.jpg https://cloud.funda.nl/valentina_media/231/646/529.jpg https://cloud.funda.nl/valentina_media/231/646/548.jpg https://cloud.funda.nl/valentina_media/231/646/542.jpg https://cloud.funda.nl/valentina_media/231/646/536.jpg https://cloud.funda.nl/valentina_media/231/646/643.jpg">
-  <td class="photo"><img src="https://cloud.funda.nl/valentina_media/231/646/537.jpg" loading="lazy" alt=""></td>
-  <td class="addr"><a href="https://www.funda.nl/detail/koop/amsterdam/appartement-droogbak-2-e/80881482/" target="_blank">Droogbak 2-E</a></td>
-  <td>Haarlemmerbuurt</td>
-  <td>Haarlemmerbuurt-Oost</td>
-  <td data-sort="675000">€ 675.000</td>
-  <td>84 m²</td>
-  <td data-sort="8036">€ 8.036</td>
-  <td>2</td>
-  <td>A</td>
-  <td data-sort="0.7">0.7 km</td>
-  <td class="listed" data-date="2026-07-06" title="2026-07-06">–</td>
-  <td class="score" data-sort="-1"><div class="rate">
-    <button data-s="0" title="reviewed, not interesting">✕</button>
-    <button data-s="1">1</button>
-    <button data-s="2">2</button>
-    <button data-s="3">3</button>
-  </div></td>
-</tr>
-<tr data-id="8072637" data-desc="***ENGLISH TEXT BELOW***
+<tr data-id="8072637" data-status="available" data-desc="***ENGLISH TEXT BELOW***
 
 RUIM 3-KAMERAPPARTEMENT MET ZONNIG BALKON, EIGEN PARKEERPLAATS IN BOS EN LOMMER
 
@@ -491,7 +421,7 @@ With this unique blend of urban amenities and nearby green oases, this is an ide
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072512" data-desc="--English below--
+<tr data-id="8072512" data-status="available" data-desc="--English below--
 
 Licht en goed ingedeeld appartement met zonnig balkon op het zuiden in Amsterdam West
 
@@ -615,7 +545,7 @@ Solar panels installed in 2024 for communal energy use" data-fp="" data-lat="52.
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072500" data-desc="Deze ruime kluswoning biedt een unieke kans om jouw droomhuis volledig naar eigen wens te realiseren. 
+<tr data-id="8072500" data-status="available" data-desc="Deze ruime kluswoning biedt een unieke kans om jouw droomhuis volledig naar eigen wens te realiseren. 
 
 Gelegen op eigen grond en met maar liefst 133 m² perceeloppervlak, beschik je hier over alle ruimte om iets bijzonders te creëren.
 De woning heeft een woonoppervlakte van circa 113 m² en is verdeeld over drie woonlagen. Op de begane grond vind je de woonkamer met open keuken en een separaat toilet. Een ideale basis om een moderne, open leefruimte te ontwerpen die helemaal past bij jouw stijl.
@@ -650,7 +580,7 @@ Kortom: een woning met enorm veel potentie, waar je jouw eigen woonwensen volled
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071766" data-desc="Dit appartement van ca. 83 m² met 2 balkons van in totaal 15 m² op de eerste verdieping combineert slimme indeling met een fijne hoeveelheid leefruimte. De woonruimte is gesitueerd op het zuiden met veel lichtinval en directe toegang tot een royaal terras van ca. 8 m². Perfect voor buiten eten of ontspannen met uitzicht. Aan de achterzijde bevinden zich twee comfortabele slaapkamers die toegang geven tot een tweede balkon van ca. 7 m². Ook dit appartement biedt een ruime badkamer, separaat toilet, wasruimte en de mogelijkheid voor een ruime keuken. Je fiets stal je veilig in de kelder of op het fietsdek.
+<tr data-id="8071766" data-status="available" data-desc="Dit appartement van ca. 83 m² met 2 balkons van in totaal 15 m² op de eerste verdieping combineert slimme indeling met een fijne hoeveelheid leefruimte. De woonruimte is gesitueerd op het zuiden met veel lichtinval en directe toegang tot een royaal terras van ca. 8 m². Perfect voor buiten eten of ontspannen met uitzicht. Aan de achterzijde bevinden zich twee comfortabele slaapkamers die toegang geven tot een tweede balkon van ca. 7 m². Ook dit appartement biedt een ruime badkamer, separaat toilet, wasruimte en de mogelijkheid voor een ruime keuken. Je fiets stal je veilig in de kelder of op het fietsdek.
 
 Omringd door water en de bruisende binnenstad
 
@@ -709,7 +639,7 @@ Uitdrukkelijke voorbehouden totstandkoming overeenkomst: Alle mondelinge en schr
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071763" data-desc="Met ca. 86 m² woonoppervlak en twee buitenruimtes van in totaal ca. 13 m² is dit appartement op de eerste verdieping een fijne plek voor wie ruimte én buitenlucht zoekt. Aan de zuidzijde ligt een heerlijk terras van ca. 8 m² dat grenst aan de leefruimte. Aan de noordkant, bij de slaapkamers, vind je een balkon van ca. 5 m². De indeling is praktisch: twee slaapkamers, moderne badkamer, apart toilet, interne berging met plek voor de wasmachine en een royale woon- en eetkamer met open keuken. Het appartement is licht, ruim en slim ingedeeld. De gedeelde voorzieningen – zoals het royale dakterras van ca. 41 m² en de twee fietsenstallingen – maken dit appartement compleet.
+<tr data-id="8071763" data-status="available" data-desc="Met ca. 86 m² woonoppervlak en twee buitenruimtes van in totaal ca. 13 m² is dit appartement op de eerste verdieping een fijne plek voor wie ruimte én buitenlucht zoekt. Aan de zuidzijde ligt een heerlijk terras van ca. 8 m² dat grenst aan de leefruimte. Aan de noordkant, bij de slaapkamers, vind je een balkon van ca. 5 m². De indeling is praktisch: twee slaapkamers, moderne badkamer, apart toilet, interne berging met plek voor de wasmachine en een royale woon- en eetkamer met open keuken. Het appartement is licht, ruim en slim ingedeeld. De gedeelde voorzieningen – zoals het royale dakterras van ca. 41 m² en de twee fietsenstallingen – maken dit appartement compleet.
 
 Omringd door water en de bruisende binnenstad
 
@@ -771,7 +701,7 @@ Alle mondelinge en schriftelijke correspondentie is geheel vrijblijvend. Een ove
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8073409" data-desc="Appartement op de derde etage met twee ruime zolderkamers in de Rivierenbuurt.
+<tr data-id="8073409" data-status="available" data-desc="Appartement op de derde etage met twee ruime zolderkamers in de Rivierenbuurt.
 
 INDELING 
 Op een rustige locatie in de Rivierenbuurt ligt dit appartement, 97m² groot. Door ligging op de derde etage is woonkamer en-suite zeer licht. Op deze etage zijn drie slaapkamers, een keuken en een badkamer met douche, wastafel een aansluiting voor de wasmachine. Over de gehele breedte aan de zonnige achterzijde ligt het balkon. De entree wordt gedeeld met alleen de bewoners van de 2e etage. De algehele staat van het appartement is gedateerd. 
@@ -816,7 +746,80 @@ Deze informatie is door ons met de nodige zorgvuldigheid samengesteld. Onzerzijd
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070651" data-desc="Entrepothof 34 – Amsterdam
+<tr data-id="8073241" data-status="available" data-desc="Ruime 5-kamer eengezinswoning in Gein-3, op supermooie locatie op 100m. loopafstand van het recreatiegebied Gaasperplas met park en strand. Met een uitbouw, opbouw, zonnepanelen, elke etage vloerverwarming, erfpacht vastgeklikt.
+
+DE LIGGING IS SUPER
+De ligging is super, aan het eind van het voetpad ben je met 100m. bij het recreatiegebied Gaasperplas met park en strand. 
+De wijk ligt gunstig nabij metrostation Gein, bushalte 47 en op 20 minuten reisafstand van het centrum van Amsterdam. 
+Winkels, markt, sportcentrum, medisch centrum, scholen, alles is relatief dichtbij zoals de winkelcentra Gein, Reigersbos en Amsterdamse Poort met max. 10 minuten op de fiets. 
+Snelle bereikbaarheid door de goede aansluiting op de ringwegen naar o.a. Schiphol, Almere, Zaandam. 
+DE ligging is op de rand van het groengebied de Gaasperzoom, echt heerlijk om hier te recreëren en te wonen.
+
+INDELING
+Entree via ruime voortuin met ruime berging.
+
+Beneden
+Ruime hal met garderobe, energiekast, een ruime berging voor de cv-installatie en verdeelgroepen van de vloerverwarming.
+Een aparte kast voor de wasmachine en droger, een modern hangend toilet met fonteintje in stijl van de badkamer.
+
+Lichte woonkamer met uitbouw van 2m. voorzien van een schuifpui en met de toegang naar de tuin op het zuiden. De uitbouw met glazen dak en pui over de gehele huisbreedte van ca. 5.50 meter geven een lichte en ruimtelijke sfeer.
+Het serredak kan worden afgeschermd voor de zon door een elctrisch te bedienen zonnescherm.
+
+De gehele benedenverdieping heeft vloerverwarming en fraaie houtsfeer stenenvloertegels.
+
+Luxe open keuken met veel werkblad, inductie kookplaat, vaatwasser, combi oven-magnetron en koel-vries combinatie en vele aflegmogelijkheden in praktische laden en kastjes. 
+
+Eerste verdieping
+Ruime moderne badkamer van 2020 met toilet, wastafelmeubel, bad en ruime inloopdouche. 
+3-slaapkamers, waarvan een nu in gebruik als kastenkamer. 
+
+Vloerverwarming en laminaatvloer aanwezig op de eerste verdieping.  
+
+Tweede verdieping
+Ontstaan door aparte dakopbouw (dubbele dakkapel) met als resultaat een ruimte van 3.66m. bij 5.50 meter met nog een kleine praktische vliering.
+Laminaatvloer en vloerverwarming aanwezig op de gehele verdieping.
+
+TUIN VOOR EN ACHTER
+Tuin achter is op het zuiden. Tuin voor ligt aan een autovrij voetpad, prettig voor spelende kinderen. De tuin is verzorgd en deels voorzien van groen en bestrating. 
+
+WAT U GRAAG WILT WETEN
+- Bouwjaar: 1986
+- Energielabel B
+- in 2020 vernieuwde woning met gestuukte wanden, keuken en sanitair.
+- Oppervlakte: 112 m2, perceelgrootte: 108 m2
+- Uitbouw met schuifpui daardoor veel prettige extra ruimte en licht.
+- Tuin op het zuiden, uitbouw voorzien van electrisch zonnescherm.
+- Kozijnen met draai-kiepramen en rolhorren voor alle ramen. (standaard was het 
+   uitzetramen)
+- CV installatie: Intergas HR combiketel van 2008.
+- Erfpacht is afgekocht tot februari 2036. Daarna vastgeklikt voor eeuwig met € 412,58 per 
+  jaar (op basis van inflatie, basisjaar 2021.
+- 9 zonnepanelen die zorgen voor lager electraverbruik.
+- Vloerverwarming op alle 3 etages, doorgespoeld en van nieuwe pomp voorzien dit jaar.
+  Dus geeft weer volle warmte af indien nodig.
+- op 100m van de Gaaperplas met strand en park.
+- Parkeren met vergunning voor € 81,- per jaar.
+
+Ideaal wonen, instapklaar u zult het merken wanneer u komt bezichtigen." data-fp="https://cloud.funda.nl/valentina_media/231/682/060.jpg https://cloud.funda.nl/valentina_media/231/682/063.jpg https://cloud.funda.nl/valentina_media/231/682/079.jpg https://cloud.funda.nl/valentina_media/231/672/855.jpg" data-lat="52.30083" data-lon="4.996516" data-photos="https://cloud.funda.nl/valentina_media/231/672/818.jpg https://cloud.funda.nl/valentina_media/231/672/756.jpg https://cloud.funda.nl/valentina_media/231/672/767.jpg https://cloud.funda.nl/valentina_media/231/672/762.jpg https://cloud.funda.nl/valentina_media/231/672/792.jpg https://cloud.funda.nl/valentina_media/231/682/060.jpg https://cloud.funda.nl/valentina_media/231/672/775.jpg https://cloud.funda.nl/valentina_media/231/672/800.jpg https://cloud.funda.nl/valentina_media/231/672/846.jpg https://cloud.funda.nl/valentina_media/231/672/878.jpg https://cloud.funda.nl/valentina_media/231/672/786.jpg https://cloud.funda.nl/valentina_media/231/672/844.jpg https://cloud.funda.nl/valentina_media/231/672/869.jpg https://cloud.funda.nl/valentina_media/231/672/889.jpg https://cloud.funda.nl/valentina_media/231/672/813.jpg https://cloud.funda.nl/valentina_media/231/672/797.jpg https://cloud.funda.nl/valentina_media/231/682/063.jpg https://cloud.funda.nl/valentina_media/231/672/768.jpg https://cloud.funda.nl/valentina_media/231/672/814.jpg https://cloud.funda.nl/valentina_media/231/672/746.jpg https://cloud.funda.nl/valentina_media/231/672/850.jpg https://cloud.funda.nl/valentina_media/231/672/837.jpg https://cloud.funda.nl/valentina_media/231/672/868.jpg https://cloud.funda.nl/valentina_media/231/672/859.jpg https://cloud.funda.nl/valentina_media/231/672/773.jpg https://cloud.funda.nl/valentina_media/231/672/793.jpg https://cloud.funda.nl/valentina_media/231/672/759.jpg https://cloud.funda.nl/valentina_media/231/682/079.jpg https://cloud.funda.nl/valentina_media/231/672/752.jpg https://cloud.funda.nl/valentina_media/231/672/780.jpg https://cloud.funda.nl/valentina_media/231/672/894.jpg https://cloud.funda.nl/valentina_media/231/672/754.jpg https://cloud.funda.nl/valentina_media/231/672/886.jpg https://cloud.funda.nl/valentina_media/231/672/855.jpg https://cloud.funda.nl/valentina_media/231/672/843.jpg https://cloud.funda.nl/valentina_media/231/672/912.jpg https://cloud.funda.nl/valentina_media/231/672/848.jpg https://cloud.funda.nl/valentina_media/231/672/872.jpg https://cloud.funda.nl/valentina_media/231/672/888.jpg">
+  <td class="photo"><img src="https://cloud.funda.nl/valentina_media/231/672/818.jpg" loading="lazy" alt=""></td>
+  <td class="addr"><a href="https://www.funda.nl/detail/koop/amsterdam/huis-hendrik-hosstraat-19/80882240/" target="_blank">Hendrik Hosstraat 19</a></td>
+  <td>Gein</td>
+  <td>Gein 3</td>
+  <td data-sort="575000">€ 575.000</td>
+  <td>112 m²</td>
+  <td data-sort="5134">€ 5.134</td>
+  <td>5</td>
+  <td>B</td>
+  <td data-sort="10.7">10.7 km</td>
+  <td class="listed" data-date="2026-07-06" title="2026-07-06">–</td>
+  <td class="score" data-sort="-1"><div class="rate">
+    <button data-s="0" title="reviewed, not interesting">✕</button>
+    <button data-s="1">1</button>
+    <button data-s="2">2</button>
+    <button data-s="3">3</button>
+  </div></td>
+</tr>
+<tr data-id="8070651" data-status="available" data-desc="Entrepothof 34 – Amsterdam
 
 Wonen aan het water, midden in de stad, met rust, ruimte én sfeer? Welkom in dit drie kamer appartement van 79 m² in het geliefde Oostelijk Havengebied!
 
@@ -912,7 +915,7 @@ In short, a wonderfully bright and comfortable apartment in a prime location in 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072407" data-desc="Royale beganegrondwoning van 102 m2 in de populaire Transvaalbuurt in Amsterdam Oost. Het appartement beschikt over een lichte woonkamer, moderne keuken, drie slaapkamers, separate berging en een fijne tuin van circa 45 m²!
+<tr data-id="8072407" data-status="available" data-desc="Royale beganegrondwoning van 102 m2 in de populaire Transvaalbuurt in Amsterdam Oost. Het appartement beschikt over een lichte woonkamer, moderne keuken, drie slaapkamers, separate berging en een fijne tuin van circa 45 m²!
 
 INDELING
 Via de eigen entree aan de straatzijde betreedt u de woning. De hal biedt toegang tot de verschillende vertrekken. Aan de voorzijde bevindt zich de ruime woonkamer met grote raampartijen, waardoor er veel natuurlijk licht binnenvalt. De aparte keuken is praktisch ingericht en voorzien van diverse inbouwapparatuur. Vanuit de hal zijn tevens de badkamer, de separate WC en een inpandige berging met wasmachine/drogeropstelling bereikbaar. Aan de rustige achterzijde van de woning bevinden zich drie goed bemeten slaapkamers, allemaal met zicht op de tuin. De tuin van circa 45 m2 is een heerlijke plek om te ontspannen, te tuinieren of uitgebreid buiten te eten. Vanuit de tuin zijn de externe berging en de gemeenschappelijke binnentuin bereikbaar.
@@ -979,7 +982,7 @@ We would be happy to schedule a viewing with you!" data-fp="https://cloud.funda.
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071122" data-desc="Ruim wonen met volop mogelijkheden in de geliefde Hoofddorppleinbuurt!
+<tr data-id="8071122" data-status="available" data-desc="Ruim wonen met volop mogelijkheden in de geliefde Hoofddorppleinbuurt!
 
 Op een van de meest gewilde locaties van Amsterdam ligt dit royale en uitstekend ingedeelde dubbele benedenhuis van circa 111m², gelegen op eigen grond. Een sfeervolle woning met een verrassend ruime opzet, een zonnig terras op het zuidwesten én volop mogelijkheden voor verschillende woonwensen. Ideaal voor gezinnen, thuiswerkers of voor wie wonen en werken graag combineert.
 
@@ -1078,7 +1081,7 @@ A spacious and versatile family home on freehold land, offering generous living 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072067" data-desc="Ontdek dit uitstekend ingedeelde 4-kamerappartement van circa 79m² in het geliefde Buitenveldert. Met drie slaapkamers, een breed balkon op het westen, een lift, een ruime berging biedt deze woning een uitstekende basis op een rustige en groene locatie, vlak bij het Gelderlandplein en de Zuidas.
+<tr data-id="8072067" data-status="available" data-desc="Ontdek dit uitstekend ingedeelde 4-kamerappartement van circa 79m² in het geliefde Buitenveldert. Met drie slaapkamers, een breed balkon op het westen, een lift, een ruime berging biedt deze woning een uitstekende basis op een rustige en groene locatie, vlak bij het Gelderlandplein en de Zuidas.
 
 Zelf een bezichtiging inplannen? Dit kan ook direct via Funda, klik op bezichtiging aanvragen en ontvang de planner in de mail. Lukt dit niet, bel dan gerust naar ons kantoor.
 
@@ -1196,7 +1199,7 @@ All dimensions and square footage provided are approximate; anyone is free to me
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070553" data-desc="Soms komen er pareltjes voorbij die je gezien moet hebben. Dit is er zo een! Spullen verhuizen en je kan hier direct wonen! 
+<tr data-id="8070553" data-status="available" data-desc="Soms komen er pareltjes voorbij die je gezien moet hebben. Dit is er zo een! Spullen verhuizen en je kan hier direct wonen! 
 
 De huidige eigenaar heeft hem al helemaal voor je ingedeeld en afgewerkt. Met als kers op de taart de opbouw met prachtig dakterras, dat een schitterend uitzicht geeft over de stad! Aan jou om dit mooie appartement in te richten!  
 
@@ -1285,7 +1288,7 @@ The non-binding information displayed on this website has been compiled by us (w
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8069432" data-desc="Deze prachtige maisonnette van circa 81 m² is verdeeld over de eerste en tweede verdieping en ligt op een unieke plek: aan de voorzijde kijk je vrij uit over het Bos en Lommerplein, terwijl je aan de achterzijde juist geniet van groen, rust en een privé terras. De woning is uitstekend onderhouden, beschikt over energielabel A en maakt deel uit van een verzorgd appartementencomplex met meerdere liften en een gemeenschappelijke binnentuin.
+<tr data-id="8069432" data-status="available" data-desc="Deze prachtige maisonnette van circa 81 m² is verdeeld over de eerste en tweede verdieping en ligt op een unieke plek: aan de voorzijde kijk je vrij uit over het Bos en Lommerplein, terwijl je aan de achterzijde juist geniet van groen, rust en een privé terras. De woning is uitstekend onderhouden, beschikt over energielabel A en maakt deel uit van een verzorgd appartementencomplex met meerdere liften en een gemeenschappelijke binnentuin.
 
 Omgeving: 
 Wonen aan het Bos en Lommerplein betekent wonen op een levendige en centrale plek in Amsterdam-West, met alles wat je nodig hebt letterlijk om de hoek. Voor de dagelijkse boodschappen hoef je alleen maar naar beneden: supermarkten, winkels, speciaalzaken en diverse eethuisjes bevinden zich direct aan en rondom het plein.
@@ -1402,62 +1405,7 @@ This information has been compiled by us with due care. However, we accept no li
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071894" data-desc="Dit lichte en ruime appartement van 80 m² ligt op de tweede verdieping van het bijzondere Solids-gebouw (2011). Een uniek project dat bekroond is met een Riba-Award in 2012, vanwege de bouwkwaliteit, duurzaamheid en flexibele gebruiksmogelijkheden (in de VvE is bepaald dat de bestemming “ter vrije keuze is van de eigenaar”).
-De woning heeft aan de achterzijde een ruime woonkamer met Frans balkon en mooi uitzicht over het water van de Jacob van Lennepkade. Aan de voorzijde is een zonnig zitje op de galerij, perfect voor een kop koffie in de ochtendzon. Het appartement (alle appartementen werden casco opgeleverd) is na de oplevering in 2012 volledig verbouwd en netjes afgewerkt, met een rustige uitstraling en een open opzet die direct prettig aanvoelt. De slaapkamer is ruim en licht, en dankzij de vrije indeelbaarheid van het Solids-concept is het mogelijk om hier eenvoudig een tweede slaapkamer te creëren of iedere andere gewenste indeling; er zijn geen dragende muren (zie voorbeeldplattegronden). Het hoge energielabel (A+) en uitstekende isolatie maken dit een duurzame en comfortabele woning, middenin de stad. Én het pand staat op eigen grond.
-
-Indeling
-De entree ligt op de tweede verdieping, te bereiken met de lift of trap. Via de galerij met een zonnig zitje op het zuidoosten kom je binnen in de hal; deze geeft toegang tot alle ruimtes. De woonkamer bevindt zich aan de achterzijde en heeft een Frans balkon met uitkijk over de Jacob van Lennepkade. In het midden van de woning liggen de keuken, de badkamer en een separate wc. De keuken is zeer eenvoudig maar deze kan gemakkelijk uitgebreid of verplaatst worden. Aan de voorzijde bevindt zich de ruime slaapkamer. In de onderbouw is er een gemeenschappelijke fietsenstalling. Een andere indeling (met bijvoorbeeld een tweede slaapkamer) is heel eenvoudig te realiseren, er zijn geen dragen de muren, zie voorbeeld plattegronden. 
-
-Gebouw en VvE
-Het gebouw maakt deel uit van het Solids-concept, waarin bewoners maximale vrijheid krijgen binnen een uiterst duurzaam casco. Het gebruik en de bestemming van de units is vrij in te vullen, dat maakt dit een uniek en bijzonder gebouw. Door de hoge bouwkwaliteit, aardwarmte-installatie en warmteterugwinning is het energieverbruik laag en het wooncomfort hoog. Dit appartement heeft dan ook energielabel A+.
-De VvE is gezond, actief en wordt professioneel beheerd. De servicekosten bedragen € 250,31 per maand en er is een meerjaren onderhoudsbegroting.
-
-Eigendom
-De woning ligt op eigen grond. Dus geen gedoe met erfpacht.
-
-Omgeving
-Gelegen in Amsterdam Oud-West, vlak bij de Jacob van Lennepkade, de Overtoom en het Vondelpark. De buurt biedt een mix van fijne winkels, koffiebars, supermarkten en restaurants, met uitstekende OV-verbindingen op loopafstand. De woning zelf ligt rustig aan het water, terwijl alle dagelijkse voorzieningen om de hoek zijn.
-
-Bijzonderheden
-- Bestemming “ter vrije keuze van de eigenaar”
-- Energielabel A+
-- Oppervlakte 80 m² (meetrapport conform BBMI aanwezig) 
-- Eigen grond
-- Indeling gemakkelijk te veranderen, er zijn geen dragende muren. Zie voorbeeldplattegronden
-- Plafond van ruim 3m hoog
-- Lift 
-- Bouwjaar 2011
-- Actieve en professioneel beheerde VvE, servicekosten per maand € 250,31
-- Verwarming en warmwater via warmtepomp (aardwarmte) en elektrische boiler
-- Frans balkon en bankje op de galerij (ligging zuidoost)
-- Gemeenschappelijke fietsenstalling in de onderbouw
-- Notariskeuze aan koper, mits in Amsterdam
-- Oplevering in overleg, kan snel
-
-De verkoop geschiedt onder de voorwaarde dat een overeenkomst pas tot stand komt op het moment dat alle betrokken partijen het koopcontract hebben ondertekend (model van de KNB ring Amsterdam of soortgelijk).
-
-Disclaimer: 
-Deze advertentie is met zorg samengesteld en gebaseerd op informatie die ten tijde van het opmaken van deze tekst bij de makelaar beschikbaar was. Desalniettemin kunnen er onbedoelde onjuistheden in staan en kunnen de opgegeven maten (marginaal) afwijken. Aan de inhoud van deze advertentie kunnen geen rechten worden ontleend. 
-De koper dient zelf onderzoek te (laten) doen naar de privaat- en publiekrechtelijke aspecten en (on)mogelijkheden van onder meer het door de koper beoogde gebruik, de staat waarin het object verkeert, milieu en (ver)bouwplannen." data-fp="https://cloud.funda.nl/listing-management/6d8e5655-7102-48fe-a473-71dba3e61aaa https://cloud.funda.nl/listing-management/bde84a0d-10e8-46a7-ad36-045e1c83d875 https://cloud.funda.nl/listing-management/058be416-162f-4483-9221-c0e48ff340ab" data-lat="52.364902" data-lon="4.8733444" data-photos="https://cloud.funda.nl/valentina_media/231/621/516.jpg https://cloud.funda.nl/valentina_media/231/621/319.jpg https://cloud.funda.nl/valentina_media/231/621/290.jpg https://cloud.funda.nl/valentina_media/231/621/351.jpg https://cloud.funda.nl/valentina_media/231/621/412.jpg https://cloud.funda.nl/valentina_media/231/621/307.jpg https://cloud.funda.nl/valentina_media/231/621/304.jpg https://cloud.funda.nl/valentina_media/231/621/376.jpg https://cloud.funda.nl/valentina_media/231/621/418.jpg https://cloud.funda.nl/valentina_media/231/621/340.jpg https://cloud.funda.nl/valentina_media/231/621/311.jpg https://cloud.funda.nl/valentina_media/231/621/386.jpg https://cloud.funda.nl/valentina_media/231/621/533.jpg https://cloud.funda.nl/valentina_media/231/621/514.jpg https://cloud.funda.nl/valentina_media/231/621/455.jpg https://cloud.funda.nl/valentina_media/231/621/424.jpg https://cloud.funda.nl/valentina_media/231/621/534.jpg https://cloud.funda.nl/valentina_media/231/621/356.jpg https://cloud.funda.nl/valentina_media/231/621/493.jpg https://cloud.funda.nl/valentina_media/231/621/300.jpg https://cloud.funda.nl/valentina_media/231/621/242.jpg https://cloud.funda.nl/valentina_media/231/621/462.jpg https://cloud.funda.nl/valentina_media/231/621/260.jpg https://cloud.funda.nl/valentina_media/231/621/309.jpg https://cloud.funda.nl/valentina_media/231/621/426.jpg https://cloud.funda.nl/valentina_media/231/621/468.jpg https://cloud.funda.nl/valentina_media/231/621/398.jpg https://cloud.funda.nl/valentina_media/231/621/413.jpg https://cloud.funda.nl/valentina_media/231/621/275.jpg https://cloud.funda.nl/valentina_media/231/621/441.jpg https://cloud.funda.nl/valentina_media/231/621/481.jpg https://cloud.funda.nl/valentina_media/231/621/259.jpg https://cloud.funda.nl/valentina_media/231/621/486.jpg https://cloud.funda.nl/valentina_media/231/621/350.jpg https://cloud.funda.nl/valentina_media/231/621/291.jpg https://cloud.funda.nl/valentina_media/231/621/317.jpg https://cloud.funda.nl/valentina_media/231/621/515.jpg https://cloud.funda.nl/valentina_media/231/621/503.jpg https://cloud.funda.nl/valentina_media/231/621/467.jpg">
-  <td class="photo"><img src="https://cloud.funda.nl/valentina_media/231/621/516.jpg" loading="lazy" alt=""></td>
-  <td class="addr"><a href="https://www.funda.nl/detail/koop/amsterdam/appartement-eerste-constantijn-huygensstraat-20-c/44426257/" target="_blank">Eerste Constantijn Huygensstraat 20-C</a></td>
-  <td>Helmersbuurt</td>
-  <td>WG-terrein</td>
-  <td data-sort="639000">€ 639.000</td>
-  <td>80 m²</td>
-  <td data-sort="7988">€ 7.988</td>
-  <td>3</td>
-  <td>A1</td>
-  <td data-sort="1.6">1.6 km</td>
-  <td class="listed" data-date="2026-07-03" title="2026-07-03">–</td>
-  <td class="score" data-sort="-1"><div class="rate">
-    <button data-s="0" title="reviewed, not interesting">✕</button>
-    <button data-s="1">1</button>
-    <button data-s="2">2</button>
-    <button data-s="3">3</button>
-  </div></td>
-</tr>
-<tr data-id="8072131" data-desc="Ruim, licht en verrassend flexibel wonen in het groen van Gein. 
+<tr data-id="8072131" data-status="available" data-desc="Ruim, licht en verrassend flexibel wonen in het groen van Gein. 
 
 Aan het Maria Snelplantsoen 30 ligt deze goed onderhouden eengezinswoning van ca. 91 m² met een royale, fraai aangelegde tuin van ca. 40 m² op het zuiden.  
 De woning beschikt over energielabel A, een afgekochte erfpachtcanon tot 2035, een externe berging in de tuin en een vernieuwd dak in 2025. 
@@ -1541,7 +1489,7 @@ De Meetinstructie is gebaseerd op de NEN2580. Het object is opgemeten door een p
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071412" data-desc="Op zoek naar een sfeervol benedenhuis met royale slaapkamer, tuin, kelder én volop mogelijkheden om je woondroom waar te maken? Dan is dit appartement precies wat je zoekt! Gelegen op een fantastische locatie aan een rustige straat in het centrum van Amsterdam, biedt dit charmante huis een unieke kans om helemaal naar jouw smaak te wonen. Zowel het Sarphatipark als het Oosterpark liggen op loopafstand, net als diverse gezellige straten voor boodschappen en voor vertier! Alle voorzieningen van zowel de Pijp als van Oost liggen binnen handbereik!
+<tr data-id="8071412" data-status="available" data-desc="Op zoek naar een sfeervol benedenhuis met royale slaapkamer, tuin, kelder én volop mogelijkheden om je woondroom waar te maken? Dan is dit appartement precies wat je zoekt! Gelegen op een fantastische locatie aan een rustige straat in het centrum van Amsterdam, biedt dit charmante huis een unieke kans om helemaal naar jouw smaak te wonen. Zowel het Sarphatipark als het Oosterpark liggen op loopafstand, net als diverse gezellige straten voor boodschappen en voor vertier! Alle voorzieningen van zowel de Pijp als van Oost liggen binnen handbereik!
 
 ***English Text Below***
 
@@ -1623,7 +1571,7 @@ Een mondelinge overeenstemming tussen particuliere verkoper en de particuliere k
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072183" data-desc="Licht en ruim 3-kamer hoekappartement van 84 m² met een zonnig balkon op het zuidoosten met uitzicht op de gracht, twee royale slaapkamers en een aparte berging. Dit appartement onderscheidt zich door de enorme hoeveelheid daglicht en de zeer praktische indeling.
+<tr data-id="8072183" data-status="available" data-desc="Licht en ruim 3-kamer hoekappartement van 84 m² met een zonnig balkon op het zuidoosten met uitzicht op de gracht, twee royale slaapkamers en een aparte berging. Dit appartement onderscheidt zich door de enorme hoeveelheid daglicht en de zeer praktische indeling.
 
 De woning is gelegen op een rustige en centrale plek op IJburg vlakbij het winkelcentrum, de haven en het groene Diemerpark.
 
@@ -1678,7 +1626,7 @@ De verkoopinformatie is met grote zorgvuldigheid samengesteld doch voor de juist
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071735" data-desc="Ontdek deze prachtige woning in de kindvriendelijke en groene wijk Geuzenveld ligt dit ruime familiehuis met vier slaapkamers, een lichte woonkamer, moderne keuken, verzorgde badkamer en een fijne tuin op het zuidoosten met overkapping. De woning beschikt daarnaast over energielabel A+, een praktische berging en toegang tot een gemeenschappelijke binnentuin.
+<tr data-id="8071735" data-status="available" data-desc="Ontdek deze prachtige woning in de kindvriendelijke en groene wijk Geuzenveld ligt dit ruime familiehuis met vier slaapkamers, een lichte woonkamer, moderne keuken, verzorgde badkamer en een fijne tuin op het zuidoosten met overkapping. De woning beschikt daarnaast over energielabel A+, een praktische berging en toegang tot een gemeenschappelijke binnentuin.
 
 Een comfortabel huis op een prettige locatie, waar rust, ruimte en stadsvoorzieningen mooi samenkomen. Op korte afstand bevinden zich onder andere het Lambertus Zijlplein, Osdorpplein, Sloterpark, Sloterplas en diverse scholen, sportvoorzieningen en openbaar vervoersverbindingen.
 
@@ -1729,7 +1677,7 @@ Bijzonderheden
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071519" data-desc="( English below)
+<tr data-id="8071519" data-status="available" data-desc="( English below)
 
 ROYALE, INSTAPKLARE EENGEZINSWONING MET ZONNIGE TUIN, ZONNEPANELEN EN ENERGIELABEL A++!
 
@@ -1867,7 +1815,7 @@ This surprisingly spacious and sustainable family home offers an outstanding com
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072233" data-desc="Een heerlijke benedenwoning van 76m2 met patio van 8m2, in een rustige straat in de populaire buurt De Baarsjes (Stadsdeel Oud West). De voormalige apotheek heeft op dit moment 3 slaapkamers en heeft een vergunning voor 3 woningdelers. Ideaal voor wie met zijn drieën wilt wonen maar er zijn diverse mogelijkheden om de woning anders in te delen. Door de officiele uitbouw te verwijderen kan de tuin worden vergroot. U kunt ook kiezen voor de middenweg door de bestaande uitbouw te verwijderen en een nieuwe uitbouw, van 2,5 meter diepte, rechtstreeks aan het hoofdgebouw te plaatsen. Dan wordt de woningoppervlakte wat kleiner maar heb je wel een heerlijke tuin op het Zuiden. De woning heeft veel potentie maar heeft wel een beetje liefde nodig.
+<tr data-id="8072233" data-status="available" data-desc="Een heerlijke benedenwoning van 76m2 met patio van 8m2, in een rustige straat in de populaire buurt De Baarsjes (Stadsdeel Oud West). De voormalige apotheek heeft op dit moment 3 slaapkamers en heeft een vergunning voor 3 woningdelers. Ideaal voor wie met zijn drieën wilt wonen maar er zijn diverse mogelijkheden om de woning anders in te delen. Door de officiele uitbouw te verwijderen kan de tuin worden vergroot. U kunt ook kiezen voor de middenweg door de bestaande uitbouw te verwijderen en een nieuwe uitbouw, van 2,5 meter diepte, rechtstreeks aan het hoofdgebouw te plaatsen. Dan wordt de woningoppervlakte wat kleiner maar heb je wel een heerlijke tuin op het Zuiden. De woning heeft veel potentie maar heeft wel een beetje liefde nodig.
 
 INDELING
 Twee entrees! Zowel een rechtstreeks vanaf de straat als een vanuit de gemeenschappelijke entree van het gebouw. Een slaapkamer aan de voorzijde. In het midden van de woning de badkamer voorzien van douche, WC en wastafel. De lichte woonkamer is gelegen aan de achterzijde met open keuken. Een tweede slaapkamer bevindt zich ook aan de achterzijde en biedt netzoals de woonkamer toegang tot de patio(zuid). Via corridor, met cvkast, naar de uitbouw waar de derde slaapkamer is die uitkijkt op de patio. 
@@ -1942,7 +1890,7 @@ This information has been compiled with due care. However, we accept no liabilit
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070178" data-desc="*****For English read below*****
+<tr data-id="8070178" data-status="available" data-desc="*****For English read below*****
 
 Ruimte is in Amsterdam schaars. Een appartement van bijna 100 m², met drie slaapkamers, een eigen parkeerplaats, lift, energielabel A én een ligging direct naast het Rembrandtpark is dan ook een combinatie die je niet dagelijks tegenkomt. Nachtwachtlaan 51 biedt bovendien een uitstekende basis voor wie op zoek is naar een ruim appartement dat je volledig naar eigen smaak kunt maken.
 
@@ -2037,7 +1985,7 @@ A surprisingly spacious four-room apartment in an excellent location, combining 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8072077" data-desc="RUIME 3-SLAAPKAMERWONING MET VOORTUIN EN EIGEN PARKEERPLAATS IN KINDVRIENDELIJK DE BONGERD
+<tr data-id="8072077" data-status="available" data-desc="RUIME 3-SLAAPKAMERWONING MET VOORTUIN EN EIGEN PARKEERPLAATS IN KINDVRIENDELIJK DE BONGERD
 
 In de groene, autoluwe en kindvriendelijke wijk De Bongerd (Amsterdam-Noord) staat deze ruime eengezinswoning van circa 89 m². Het betreft een vier-onder-één-kapwoning met drie slaapkamers, verdeeld over drie woonlagen, met een eigen voortuin op privéterrein, een eigen parkeerplaats van 14 m² en twee bergingen. Een zeldzame combinatie in Amsterdam. De woning kenmerkt zich door veel licht, een praktische indeling en een hoge, sfeervolle leefverdieping bovenin. Bovendien beschikt de woning over energielabel A.
 
@@ -2145,7 +2093,7 @@ PARTICULARS
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071858" data-desc="Prinsengracht 788-O – Authentiek grachtenappartement op toplocatie!
+<tr data-id="8071858" data-status="available" data-desc="Prinsengracht 788-O – Authentiek grachtenappartement op toplocatie!
 
 Wonen aan één van de mooiste grachten van Amsterdam, tegenover het rustige Amstelveld, om de hoek van de Utrechtsestraat en op steenworp afstand de Amstel, de Magere Brug en Carré. Dit karakteristieke dubbele benedenhuis van 93 m² ligt op eigen grond en biedt een rustige woonervaring midden in de bruisende binnenstad. Een unieke kans om een karakteristiek grachtenappartement op een toplocatie volledig naar eigen smaak te moderniseren.
 
@@ -2210,7 +2158,7 @@ Deze informatie is met de grootst mogelijke zorg samengesteld. Toch kunnen wij n
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071981" data-desc="Ruimte, licht en veelzijdigheid komen samen in deze verrassend royale eengezinswoning aan de Aalbersestraat 1-B. Een heerlijke plek voor wie comfortabel wil wonen met volop leefruimte, meerdere buitenruimtes en alle dagelijkse voorzieningen binnen handbereik. Of je nu een gezin hebt, vanuit huis werkt of gewoon op zoek bent naar een woning met mogelijkheden: hier vind je de ideale basis om jarenlang met plezier te wonen.
+<tr data-id="8071981" data-status="available" data-desc="Ruimte, licht en veelzijdigheid komen samen in deze verrassend royale eengezinswoning aan de Aalbersestraat 1-B. Een heerlijke plek voor wie comfortabel wil wonen met volop leefruimte, meerdere buitenruimtes en alle dagelijkse voorzieningen binnen handbereik. Of je nu een gezin hebt, vanuit huis werkt of gewoon op zoek bent naar een woning met mogelijkheden: hier vind je de ideale basis om jarenlang met plezier te wonen.
 
 Indeling
 Begane grond
@@ -2259,7 +2207,7 @@ Wij zijn niet verantwoordelijk voor de inhoud van de websites waarnaar verwezen 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071557" data-desc="[Switch funda to English for English text]. Luxe recentelijk verbouwd vierkamer hoekappartement op de derde en tevens bovenste verdieping op een fantastische locatie precies tussen de Amsterdamse Zuid-As en Amstelveen. Deze woning heeft drie ruime slaapkamers, recent vernieuwde badkamer, een luxe keuken, een royale woonkamer, een balkon met ochtendzon en eeuwigdurende erfpacht vastgeklikt tegen de gunstige voorwaarden!
+<tr data-id="8071557" data-status="available" data-desc="[Switch funda to English for English text]. Luxe recentelijk verbouwd vierkamer hoekappartement op de derde en tevens bovenste verdieping op een fantastische locatie precies tussen de Amsterdamse Zuid-As en Amstelveen. Deze woning heeft drie ruime slaapkamers, recent vernieuwde badkamer, een luxe keuken, een royale woonkamer, een balkon met ochtendzon en eeuwigdurende erfpacht vastgeklikt tegen de gunstige voorwaarden!
 
 Het appartement
 Het gebouw is ideaal gelegen tussen de Amsterdamse Zuidas en Amstelveen. Recentelijk is het appartement grondig onder handen genomen. De wanden zijn strak afgewerkt en fris geschilderd, de keuken is geheel vernieuwd, uitgevoerd in L-opstelling, composieten aanrechtblad en Siemens apparatuur waaronder uiteraard een vaatwasser. Het sanitair is eveneens vernieuwd en luxe uitgevoerd met fraai tegelwerk, een accentwand, wastafelmeubel en een regendouche. De hele woning is voorzien van dubbele beglazing en heeft een energielabel C.
@@ -2322,7 +2270,7 @@ Deze informatie is door ons met de nodige zorgvuldigheid samengesteld. Onzerzijd
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071467" data-desc="Licht en uitstekend ingedeeld 3-kamerappartement van 83 m² met EIGEN PARKEERPLAATS, ruim balkon, gezamenlijke fietsenberging, gemeenschappelijk dakterras en afgekochte erfpacht tot 2058!
+<tr data-id="8071467" data-status="available" data-desc="Licht en uitstekend ingedeeld 3-kamerappartement van 83 m² met EIGEN PARKEERPLAATS, ruim balkon, gezamenlijke fietsenberging, gemeenschappelijk dakterras en afgekochte erfpacht tot 2058!
 
 Bent u op zoek naar een instapklaar appartement met veel licht, twee volwaardige slaapkamers, een eigen parkeerplaats en een uitstekende bereikbaarheid? Dan is dit verzorgde appartement op de derde verdieping precies wat u zoekt. De woning beschikt over een ruime woonkamer, een moderne halfopen keuken, twee goed bemeten slaapkamers, een balkon van circa 8,5 m² en een eigen parkeerplaats in de ondergelegen parkeergarage. Daarnaast is de erfpacht afgekocht tot 15 maart 2058, waardoor u zich hierover jarenlang geen zorgen hoeft te maken.
 
@@ -2459,7 +2407,7 @@ This version is written in the style commonly used by international estate agent
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071901" data-desc="Modern en luxe turn-key 3-kamer appartement van maar liefst 88 m² met een zonnig balkon gelegen in een karakteristiek monumentaal jaren &#x27;30 complex midden in de Rivierenbuurt van Amsterdam! Naast de moderne afwerking met luxe materiaalkeuze, biedt de indeling bestaande uit een open woonkeuken en 2 ruime slaapkamers, een optimaal wooncomfort.
+<tr data-id="8071901" data-status="available" data-desc="Modern en luxe turn-key 3-kamer appartement van maar liefst 88 m² met een zonnig balkon gelegen in een karakteristiek monumentaal jaren &#x27;30 complex midden in de Rivierenbuurt van Amsterdam! Naast de moderne afwerking met luxe materiaalkeuze, biedt de indeling bestaande uit een open woonkeuken en 2 ruime slaapkamers, een optimaal wooncomfort.
 
 OMGEVING &amp; BEREIKBAARHEID
 In de nabije omgeving tref je een grote diversiteit aan van winkels, versmarkten, restaurants, cafés en het groen van het Merwedeplein en het Martin Luther Kingpark.
@@ -2546,7 +2494,7 @@ De gebruiksoppervlakte is berekend conform de branche vastgestelde NEN-2580 norm
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071757" data-desc="Uniek appartement aan de Kempenlaan 40 gelegen in het populaire en groene Nieuw-Sloten! Dit ruime appartement bied volop mogelijkheden. Met een woonoppervlakte van 84m², twee goed bemeten slaapkamers, een lichte woonkamer en een ruim balkon op het zuiden én aan het water biedt deze woning een uitstekende basis voor comfortabel wonen.
+<tr data-id="8071757" data-status="available" data-desc="Uniek appartement aan de Kempenlaan 40 gelegen in het populaire en groene Nieuw-Sloten! Dit ruime appartement bied volop mogelijkheden. Met een woonoppervlakte van 84m², twee goed bemeten slaapkamers, een lichte woonkamer en een ruim balkon op het zuiden én aan het water biedt deze woning een uitstekende basis voor comfortabel wonen.
 
 De woning is gelegen in Nieuw-Sloten, een rustige en groene woonomgeving met alle dagelijkse voorzieningen binnen handbereik. In de directe omgeving bevinden zich diverse supermarkten, winkels, scholen en kinderopvanglocaties. Ook sportverenigingen en recreatiemogelijkheden liggen op korte afstand. Openbaar vervoer is uitstekend geregeld met tram- en busverbindingen in de nabijheid, waardoor je snel andere delen van Amsterdam bereikt. Daarnaast zorgen de gunstige ligging ten opzichte van de snelweg voor een uitstekende bereikbaarheid met de auto.
 
@@ -2595,7 +2543,7 @@ Bijzonderheden:
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070169" data-desc="Op geweldige locatie in het geliefde Buitenveldert bieden wij dit royale, recent gerenoveerde en uitstekend onderhouden 4-kamer HOEK appartement aan met zonnig balkon en berging.
+<tr data-id="8070169" data-status="available" data-desc="Op geweldige locatie in het geliefde Buitenveldert bieden wij dit royale, recent gerenoveerde en uitstekend onderhouden 4-kamer HOEK appartement aan met zonnig balkon en berging.
 
 De energiezuinige woning is direct te betrekken en beschikt over energielabel A!
 Gelegen op de eerste verdieping van een verzorgd appartementencomplex met lift. Met een royale en bijzonder lichte woonkamer, een luxe open leefkeuken drie slaapkamers, een moderne badkamer en een heerlijk zonnig balkon op het zuiden biedt dit appartement een uitzonderlijk hoog wooncomfort.
@@ -2679,7 +2627,7 @@ Features:
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071252" data-desc="De woning is een heerlijk licht 4-kamerappartement, gelegen op de derde en vierde verdieping, met een zonnig balkon op het zuidoosten en een eigen berging op de begane grond. Het appartementencomplex is in 2012 gesplitst en ligt in de geliefde Swammerdambuurt, nabij de Weesperzijde en de Amstel. Energielabel A! Dankzij de ruime indeling, drie slaapkamers, de ruime woonkeuken en het balkon aan de achterzijde is dit een heerlijk stadshuis met veel comfort en mogelijkheden. De ligging is ideaal: rustig wonen in een kindvriendelijke buurt, met de Amstel, De Pijp, de binnenstad, goede horeca, winkels, parken en openbaar vervoer binnen handbereik. Omdat de woning gelegen is onder een plat dakvlak, is er feitelijk gezien mogelijkheid een dakterras aan te leggen. Dit onder voorbehoud dat de VvE en Gemeente dit goedkeurt. Kom je snel langs? Groet, Mokum Makelaardij. 
+<tr data-id="8071252" data-status="available" data-desc="De woning is een heerlijk licht 4-kamerappartement, gelegen op de derde en vierde verdieping, met een zonnig balkon op het zuidoosten en een eigen berging op de begane grond. Het appartementencomplex is in 2012 gesplitst en ligt in de geliefde Swammerdambuurt, nabij de Weesperzijde en de Amstel. Energielabel A! Dankzij de ruime indeling, drie slaapkamers, de ruime woonkeuken en het balkon aan de achterzijde is dit een heerlijk stadshuis met veel comfort en mogelijkheden. De ligging is ideaal: rustig wonen in een kindvriendelijke buurt, met de Amstel, De Pijp, de binnenstad, goede horeca, winkels, parken en openbaar vervoer binnen handbereik. Omdat de woning gelegen is onder een plat dakvlak, is er feitelijk gezien mogelijkheid een dakterras aan te leggen. Dit onder voorbehoud dat de VvE en Gemeente dit goedkeurt. Kom je snel langs? Groet, Mokum Makelaardij. 
 
 Indeling 
 Via de entree op de derde verdieping kom je binnen in de hal. Deze biedt toegang tot de woonkamer met balkon, de keuken, het separate toilet met fonteintje en de interne trap naar de vierde verdieping. De hal is opvallend ruim en geeft direct een prettig en uitnodigend gevoel. Aan de voorzijde bevindt zich de recent gerenoveerde keuken. Deze is royaal van formaat en beschikt over een Frans balkon aan de kant van het gezellige pleintje aan de Leeuwenhoekstraat. De keuken is volledig uitgerust met ATAG-apparatuur, waaronder een koelkast, 4-pits gaskookplaat, afzuigkap en vaatwasser. Door de ruime opzet is er volop plek om uitgebreid te koken en daarnaast is er voldoende ruimte voor een eettafel. Ook praktisch is de aanwezige kast met daarin de cv-ketel, waar daarnaast nog wat opbergruimte beschikbaar is. Aan de achterzijde ligt de woonkamer, een fijne, lichte en verwelkomende ruimte met een schuifdeur naar het zonnige balkon op het zuidoosten. Hierdoor lopen binnen en buiten mooi in elkaar over en ontstaat een heerlijke plek om te ontspannen. Het balkon is circa 1,4 meter diep en biedt een fijne plek om buiten te zitten. De woonkamer biedt voldoende ruimte voor een royale zithoek en een eethoek. Wie ervoor kiest om de eettafel in de keuken te plaatsen, houdt hier extra ruimte over voor bijvoorbeeld een werkplek, kast of speelruimte. Op de vierde verdieping kom je uit op de lichte overloop. Hier zorgen twee ruime inbouwkasten voor praktische opbergruimte. De badkamer is functioneel ingedeeld en voorzien van een douche, wastafel en aansluiting voor de wasmachine. Verder bevinden zich op deze verdieping drie slaapkamers: twee slaapkamers aan de achterzijde en een ruime slaapkamer aan de voorzijde. Hierdoor is de woning geschikt voor verschillende woonwensen, zoals een gezin, thuiswerken of het creëren van een logeer- of hobbykamer. Op de begane grond beschikt de woning daarnaast over een eigen berging, ideaal voor fietsen, koffers en andere spullen. 
@@ -2735,7 +2683,7 @@ Deze aanmelding is met de grootst mogelijke zorg samengesteld. Er wordt echter g
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071388" data-desc="Albert Cuypstraat 274-1, 1073 BR Amsterdam
+<tr data-id="8071388" data-status="available" data-desc="Albert Cuypstraat 274-1, 1073 BR Amsterdam
 
 Deze karaktervolle woning (ca. 90m²) combineert klassieke charme met modern wooncomfort. Het appartement heeft 2 slaapkamers, een frans balkon, een praktische indeling en een een prettige en stijlvolle leefomgeving. De woning is gelegen op eigen grond, waardoor er geen sprake is van erfpacht. De ligging aan de levendige Albert Cuypstraat in het hart van De Pijp maakt dit een bijzondere plek, waar het stadsleven en rustig wonen in balans samenkomen.
 
@@ -2791,7 +2739,7 @@ Deze informatie is door ons met de nodige zorgvuldigheid samengesteld. Onzerzijd
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071353" data-desc="Moderne en lichte 4-kamerwoning van 130 m² met 3 ruime slaapkamers en balkon
+<tr data-id="8071353" data-status="available" data-desc="Moderne en lichte 4-kamerwoning van 130 m² met 3 ruime slaapkamers en balkon
 
 Het appartement ligt direct tegenover winkelcentrum Ganzenpoort en metrostation Ganzenhoef, in stadsdeel Zuidoost aan de Bijlmerdreef. De Bijlmerdreef heeft een stedelijke uitstraling en kenmerkt zich door de vele moderne appartementencomplexen die direct aan de boulevard zijn gelegen.
 
@@ -2836,7 +2784,7 @@ Wij zijn niet verantwoordelijk voor de inhoud van de websites waarnaar wordt ver
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071285" data-desc="Een royaal, praktisch ingedeeld en energiezuinig appartement op een toplocatie in Amsterdam Zuidoost! Dit appartement is verdeeld over twee woonlagen en beschikt onder meer over een ruime en lichte woonkamer, een moderne keuken, drie slaapkamers en een keurig verzorgde badkamer. Aan de voorzijde bevindt zich een heerlijke tuin waar je in alle rust van het zonnetje kunt genieten. Met energielabel A scoort het appartement bovendien uitstekend op het gebied van duurzaamheid.
+<tr data-id="8071285" data-status="available" data-desc="Een royaal, praktisch ingedeeld en energiezuinig appartement op een toplocatie in Amsterdam Zuidoost! Dit appartement is verdeeld over twee woonlagen en beschikt onder meer over een ruime en lichte woonkamer, een moderne keuken, drie slaapkamers en een keurig verzorgde badkamer. Aan de voorzijde bevindt zich een heerlijke tuin waar je in alle rust van het zonnetje kunt genieten. Met energielabel A scoort het appartement bovendien uitstekend op het gebied van duurzaamheid.
 
 En dan is er nog de geweldige ligging. Hier woon je rustig, maar wel met alle denkbare voorzieningen binnen handbereik. Kortom: een mooie kans voor wie ruim, comfortabel en centraal wil wonen! We nemen je mee:
 •	Woongenot: 118.9 m²
@@ -2903,7 +2851,7 @@ Goed om te weten:
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071139" data-desc="** ENGLISH TEXT BELOW ** 
+<tr data-id="8071139" data-status="available" data-desc="** ENGLISH TEXT BELOW ** 
 
 Een licht, ruim en uitstekend ingedeeld appartement met een zonnig balkon op het zuiden, verdeeld over twee woonlagen. Gelegen op een rustige locatie tussen de Sloterplas en het Rembrandtpark. Deze verzorgde maisonnette van circa 81m2 combineert ruimte, comfort en een verrassend vrij uitzicht met een uitstekende bereikbaarheid. Een ideale woning voor wie royaal wil wonen in het groen, zonder afstand te doen van alles wat Amsterdam te bieden heeft.
 
@@ -2990,7 +2938,7 @@ Highlights
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070309" data-desc="***English text below***
+<tr data-id="8070309" data-status="available" data-desc="***English text below***
 
 Dit is zo’n huis waar je direct verliefd op wordt – licht, luxe, verrassend ruim en met een heerlijke patio als verlengstuk van je woonkamer.
 
@@ -3117,7 +3065,7 @@ Schedule a viewing soon and let yourself be surprised!" data-fp="https://cloud.f
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071066" data-desc="Ruim en licht 2-kamerappartement (86 m²) met royale woonkamer en balkon, gelegen in het rustige groene Buitenveldert
+<tr data-id="8071066" data-status="available" data-desc="Ruim en licht 2-kamerappartement (86 m²) met royale woonkamer en balkon, gelegen in het rustige groene Buitenveldert
 
 Aan een rustige straat in Amsterdam bevindt zich dit verrassend ruime appartement met een woonoppervlakte van circa 86 m². De woning beschikt over een royale woonkamer, een aparte eetkamer, een ruime slaapkamer en een zonnig balkon. Dankzij de praktische indeling en de grote raampartijen geniet u hier van veel natuurlijk licht en een comfortabele leefomgeving. Ook is er zeer gemakkelijk een tweede slaapkamer te realiseren.
 
@@ -3172,7 +3120,7 @@ De op deze website getoonde vrijblijvende informatie is door ons met zorg sameng
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8071071" data-desc="Woningzoekers opgelet! 
+<tr data-id="8071071" data-status="available" data-desc="Woningzoekers opgelet! 
 Een unieke kans om te wonen in een gloednieuwe hoekwoning in de vernieuwende Van Deysselbuurt in Amsterdam Nieuw-West. De woning beschikt over drie slaapkamers, twee woonlagen, ten minste energielabel A++ en over een riante achtertuin van circa 47 m² op het zuiden! Deze opvallend bijzonder lichte en ruime eengezinswoning van circa 82 m² wordt vrij op naam (v.o.n.) opgeleverd en is al in september 2026 klaar voor bewoning. Dat betekent wel de voordelen van nieuwbouw, maar geen jarenlange wachttijd, lange bouwperiode of onnodig lange dubbele lasten.
 
 Bent u geïnteresseerd in één van de zes prachtige eengezinswoningen aan de Van Moerkerkenstraat 33 tot en met 37 en/of 77 tot en met 81? Kom dan vrijblijvend langs tijdens de open dagen op donderdag 2 juli, woensdag 8 juli en donderdag 9 juli van 16:00 tot 17:30 uur. Een afspraak maken is niet nodig.
@@ -3231,7 +3179,7 @@ Bijzonderheden:
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070880" data-desc="Wonen aan het water aan de rand van het moderne De Bongerd. Modern, ruim, licht en helemaal af!
+<tr data-id="8070880" data-status="available" data-desc="Wonen aan het water aan de rand van het moderne De Bongerd. Modern, ruim, licht en helemaal af!
 
 Aan de rustige Galastraat in Amsterdam-Noord ligt dit moderne 3-kamerappartement van circa 82 m², gelegen op de tweede verdieping van een recent opgeleverd complex uit 2024. Een instapklare woning met een fijne lichtinval, een fraai balkon dat uitkijkt over het water (Zijkanaal I) én een hoog afwerkingsniveau. Dankzij het energielabel A+++, volledige vloerverwarming, WTW-installatie, stadsverwarming en de uitstekende isolatie woon je hier niet alleen comfortabel, maar ook bijzonder energiezuinig. Daarnaast beschikt de woning over een eigen parkeerplaats in de ondergelegen garage. 
 
@@ -3300,7 +3248,7 @@ Nieuwsgierig geworden? Wij nodigen u graag uit voor een bezichtiging om zelf de 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070588" data-desc="Licht en ruim dubbel bovenhuis van 105 m² in De Baarsjes, voorzien van 4 slaapkamer en gelegen op EIGEN GROND! 
+<tr data-id="8070588" data-status="available" data-desc="Licht en ruim dubbel bovenhuis van 105 m² in De Baarsjes, voorzien van 4 slaapkamer en gelegen op EIGEN GROND! 
 
 Op een levendige en geliefde locatie in De Baarsjes ligt dit lichte dubbele bovenhuis van ca. 105 m², verdeeld over de derde en vierde verdieping, met balkon en veel potentie. De woning beschikt op de derde verdieping over een fijne woonkamer, keuken, slaapkamer/werkkamer en badkamer. De vierde verdieping is nog niet volledig afgewerkt en biedt daarmee een mooie kans om de woning geheel naar eigen smaak verder af te maken.
 
@@ -3430,7 +3378,7 @@ This information has been compiled by us with due care. However, we accept no li
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070681" data-desc="- English text below – 
+<tr data-id="8070681" data-status="available" data-desc="- English text below – 
 
 Modern, licht en verrassend ruim wonen op hoogte – dit stijlvolle 3-kamerappartement van ca. 128 m² in het luxe complex Uptown biedt comfort, rust én een prachtig uitzicht over Amsterdam Nieuw-West.
 Gelegen op de 7e verdieping (entree op de 8e) beschikt dit uitstekend ingedeelde appartement over een royale doorzonwoonkamer met open keuken, twee comfortabele slaapkamers, een riante badkamer en een zonnige loggia waar je tot in de avond van de zon kunt genieten.
@@ -3531,7 +3479,7 @@ The data and dimensions on the maps and in the brochure are indicative. Although
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8070297" data-desc="Heerlijk wonen aan het water, in de fijne Walvisbuurt met eeuwigdurend afgekochte erfpacht! Aan de Narwalstraat staat deze gezellige woning met drie slaapkamers en een tuin aan het water. Dit fijne huis heeft een tuingerichte woonkamer met schuifpui, een ruime keuken en een vernieuwde badkamer. Goed om te weten: op de plek van het dakterras is het mogelijk om een extra slaapkamer te realiseren!
+<tr data-id="8070297" data-status="available" data-desc="Heerlijk wonen aan het water, in de fijne Walvisbuurt met eeuwigdurend afgekochte erfpacht! Aan de Narwalstraat staat deze gezellige woning met drie slaapkamers en een tuin aan het water. Dit fijne huis heeft een tuingerichte woonkamer met schuifpui, een ruime keuken en een vernieuwde badkamer. Goed om te weten: op de plek van het dakterras is het mogelijk om een extra slaapkamer te realiseren!
 
 De Walvisbuurt heeft een mooie ligging aan de rand van de stad. Water en groen zijn volop aanwezig, wat het wonen hier heel aantrekkelijk maakt. Aan het Zuideinde is een grote supermarkt en op loopafstand zijn kinderopvang, bso en een basisschool. Ook sportverenigingen zijn in de nabijheid, net als winkelcentrum Molenwijk.
 
@@ -3586,7 +3534,7 @@ Wij zijn niet verantwoordelijk voor de inhoud van de websites waarnaar verwezen 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8069160" data-desc="Gelegen op een fraaie hoeklocatie bevindt zich dit ruim opgezette 3-kamerappartement met eigen parkeerplaats. De royale living met grote, hoge raampartijen zorgt voor veel lichtinval en een uitstekende zonligging. Het appartement van circa 106 m² beschikt daarnaast over een beschut terras aan een bijzonder ruim en rustig lichthof, wat zorgt voor een bijna on-Amsterdamse sfeer van rust en ruimte. Het appartement is bereikbaar per lift en beschikt over een eigen parkeerplaats.
+<tr data-id="8069160" data-status="available" data-desc="Gelegen op een fraaie hoeklocatie bevindt zich dit ruim opgezette 3-kamerappartement met eigen parkeerplaats. De royale living met grote, hoge raampartijen zorgt voor veel lichtinval en een uitstekende zonligging. Het appartement van circa 106 m² beschikt daarnaast over een beschut terras aan een bijzonder ruim en rustig lichthof, wat zorgt voor een bijna on-Amsterdamse sfeer van rust en ruimte. Het appartement is bereikbaar per lift en beschikt over een eigen parkeerplaats.
 
 ENGLISH TEXT BELOW
 
@@ -3678,7 +3626,7 @@ This information has been compiled with the greatest possible care. However, we 
     <button data-s="3">3</button>
   </div></td>
 </tr>
-<tr data-id="8069179" data-desc="Waalstraat 133hs, 1079DW Amsterdam 
+<tr data-id="8069179" data-status="available" data-desc="Waalstraat 133hs, 1079DW Amsterdam 
 
 Midden in de populaire Rivierenbuurt bieden wij dit heerlijke benedenhuis (ca. 87m²) aan! Het appartement bestaat uit een lichte en ruime living met open keuken, twee slaapkamers en een riante achtertuin van circa 60m2, met geïsoleerd tuinhuis. Het is heerlijk wonen aan de Waalstraat met alle gemakken die de buurt te bieden heeft, op een steenworp afstand gelegen!
 
@@ -3739,7 +3687,6 @@ Bijzonderheden
 </div>
 <script>
 const tbody = document.querySelector('#t tbody');
-const ratings = JSON.parse(localStorage.getItem('funda-ratings') || '{}');
 
 for (const cell of document.querySelectorAll('td.listed')) {
   const iso = cell.dataset.date;
@@ -3750,8 +3697,45 @@ for (const cell of document.querySelectorAll('td.listed')) {
 }
 const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
+const hideUO = document.getElementById('hideUO');
 
-function saveRatings() { localStorage.setItem('funda-ratings', JSON.stringify(ratings)); }
+// ratings live on the server (shared across browsers/people); localStorage is
+// the fallback when the page is opened statically (file://, python -m http.server)
+let ratings = {};
+let serverRatings = false;
+
+function postRate(id, score) {
+  fetch('rate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id, score}),
+  }).catch(() => {});
+}
+
+function saveRating(id, score) {
+  if (score === null) delete ratings[id];
+  else ratings[id] = score;
+  if (serverRatings) postRate(id, score);
+  else localStorage.setItem('funda-ratings', JSON.stringify(ratings));
+}
+
+async function initRatings() {
+  const local = JSON.parse(localStorage.getItem('funda-ratings') || '{}');
+  try {
+    const res = await fetch('ratings.json', {cache: 'no-store'});
+    if (res.ok) { ratings = await res.json(); serverRatings = true; }
+  } catch (e) {}
+  if (serverRatings) {
+    // one-time migration: push local ratings the server doesn't know yet
+    for (const [id, s] of Object.entries(local)) {
+      if (!(id in ratings)) { ratings[id] = s; postRate(id, s); }
+    }
+  } else {
+    ratings = local;
+  }
+  applyRatings();
+  applyFilters();
+}
 
 function listingRows() { return [...tbody.querySelectorAll('tr[data-id]')]; }
 
@@ -3769,7 +3753,8 @@ function applyFilters() {
   for (const tr of listingRows()) {
     const s = ratings[tr.dataset.id];
     if (s !== undefined) rated++;
-    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0);
+    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
+      || (hideUO.checked && tr.dataset.status === 'negotiations');
     tr.style.display = hide ? 'none' : '';
     const next = tr.nextElementSibling;
     if (next && next.classList.contains('desc-row')) next.style.display = hide ? 'none' : '';
@@ -3780,6 +3765,7 @@ function applyFilters() {
 
 hideRated.addEventListener('change', applyFilters);
 hideNo.addEventListener('change', applyFilters);
+hideUO.addEventListener('change', applyFilters);
 
 document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click', () => {
   document.querySelectorAll('.desc-row').forEach(r => r.remove());
@@ -3798,9 +3784,9 @@ document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click
 }));
 
 function rate(tr, s) {
-  if (ratings[tr.dataset.id] === s) delete ratings[tr.dataset.id];
-  else ratings[tr.dataset.id] = s;
-  saveRatings(); applyRatings(); applyFilters();
+  const id = tr.dataset.id;
+  saveRating(id, ratings[id] === s ? null : s);
+  applyRatings(); applyFilters();
 }
 
 function toggleFold(tr) {
@@ -3973,8 +3959,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-applyRatings();
-applyFilters();
+initRatings();
 </script>
 </body>
 </html>

@@ -29,6 +29,8 @@ CONFIG_FILE = ROOT / "config.json"
 
 DETAIL_FETCH_DELAY_S = 1.0
 IMAGE_FETCH_DELAY_S = 0.15
+# statuses that mean the listing is off the market and should leave the overview
+GONE_STATUSES = {"sold", "unavailable", "withdrawn", "rented"}
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
     " (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
@@ -167,7 +169,7 @@ def build_record(item, detail, config: dict) -> dict:
         "photo_url": photo_url,
         "photo_urls": photos,
         "description": detail.description,
-        "status": str(item.status or ""),
+        "status": str(detail.status or item.status or ""),
     }
 
 
@@ -188,6 +190,39 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
             time.sleep(DETAIL_FETCH_DELAY_S)
 
     return len(items), len(new_items)
+
+
+def refresh_statuses(listings: dict[str, dict]) -> int:
+    """Re-fetch status and price for listings not yet known to be off the market."""
+    todo = [l for l in listings.values() if l.get("status") not in GONE_STATUSES]
+    changed = 0
+    with Funda() as client:
+        for l in todo:
+            try:
+                detail = client.listing(l["id"])
+            except Exception as e:
+                if "404" in str(e) or "not found" in str(e).lower():
+                    l["status"] = "unavailable"
+                    changed += 1
+                else:
+                    print(f"  status check failed for {l['title']}: {e}", file=sys.stderr)
+                time.sleep(DETAIL_FETCH_DELAY_S)
+                continue
+            new_status = str(detail.status or l.get("status") or "")
+            if new_status != l.get("status"):
+                print(f"  {l['title']}: {l.get('status') or '?'} -> {new_status}")
+                l["status"] = new_status
+                changed += 1
+            price = detail.price.amount if detail.price else None
+            if price and price != l.get("price"):
+                print(f"  {l['title']}: price {l.get('price')} -> {price}")
+                l["price"] = price
+                if l.get("living_area"):
+                    l["price_per_m2"] = round(price / l["living_area"])
+                changed += 1
+            time.sleep(DETAIL_FETCH_DELAY_S)
+    print(f"status refresh: {len(todo)} checked, {changed} changes")
+    return changed
 
 
 def backfill_photos(listings: dict[str, dict]) -> None:
@@ -230,13 +265,19 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     min_area = filters.get("min_area")
     min_price = filters.get("min_price")
     max_price = filters.get("max_price")
+    min_bedrooms = filters.get("min_bedrooms")
 
     def visible(l: dict) -> bool:
+        if l.get("status") in GONE_STATUSES:
+            return False
         if min_area and l.get("living_area") and l["living_area"] < min_area:
             return False
         if min_price and l.get("price") and l["price"] < min_price:
             return False
         if max_price and l.get("price") and l["price"] > max_price:
+            return False
+        # bedrooms 0/None means unreported — keep those rather than losing real options
+        if min_bedrooms and l.get("bedrooms") and l["bedrooms"] < min_bedrooms:
             return False
         return True
 
@@ -265,9 +306,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
+            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_urls)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
   <td class="photo">{photo}</td>
-  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a></td>
+  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   {td(l.get('wijk'))}
   {td(l.get('neighbourhood'))}
   <td data-sort="{l.get('price') or 0}">{price}</td>
@@ -321,6 +362,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .fold-right .none {{ color: #999; margin-top: .5rem; }}
   kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
   tr.sel > td {{ background: #eaf4fb; }}
+  tr[data-status="negotiations"] {{ opacity: .55; }}
+  .uo-tag {{ background: #e5e5e5; color: #555; border-radius: 3px; font-size: .7rem; padding: .1rem .35rem; margin-left: .4rem; }}
   #grid {{ position: fixed; inset: 0; background: rgba(255,255,255,.98); z-index: 10; overflow-y: auto; padding: 1rem; }}
   #grid header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }}
   #grid header span {{ font-weight: 600; }}
@@ -341,6 +384,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
+  <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
   <span id="counts" class="meta"></span>
 </div>
 <table id="t">
@@ -362,7 +406,6 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </div>
 <script>
 const tbody = document.querySelector('#t tbody');
-const ratings = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
 
 for (const cell of document.querySelectorAll('td.listed')) {{
   const iso = cell.dataset.date;
@@ -373,8 +416,45 @@ for (const cell of document.querySelectorAll('td.listed')) {{
 }}
 const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
+const hideUO = document.getElementById('hideUO');
 
-function saveRatings() {{ localStorage.setItem('funda-ratings', JSON.stringify(ratings)); }}
+// ratings live on the server (shared across browsers/people); localStorage is
+// the fallback when the page is opened statically (file://, python -m http.server)
+let ratings = {{}};
+let serverRatings = false;
+
+function postRate(id, score) {{
+  fetch('rate', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{id, score}}),
+  }}).catch(() => {{}});
+}}
+
+function saveRating(id, score) {{
+  if (score === null) delete ratings[id];
+  else ratings[id] = score;
+  if (serverRatings) postRate(id, score);
+  else localStorage.setItem('funda-ratings', JSON.stringify(ratings));
+}}
+
+async function initRatings() {{
+  const local = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
+  try {{
+    const res = await fetch('ratings.json', {{cache: 'no-store'}});
+    if (res.ok) {{ ratings = await res.json(); serverRatings = true; }}
+  }} catch (e) {{}}
+  if (serverRatings) {{
+    // one-time migration: push local ratings the server doesn't know yet
+    for (const [id, s] of Object.entries(local)) {{
+      if (!(id in ratings)) {{ ratings[id] = s; postRate(id, s); }}
+    }}
+  }} else {{
+    ratings = local;
+  }}
+  applyRatings();
+  applyFilters();
+}}
 
 function listingRows() {{ return [...tbody.querySelectorAll('tr[data-id]')]; }}
 
@@ -392,7 +472,8 @@ function applyFilters() {{
   for (const tr of listingRows()) {{
     const s = ratings[tr.dataset.id];
     if (s !== undefined) rated++;
-    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0);
+    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
+      || (hideUO.checked && tr.dataset.status === 'negotiations');
     tr.style.display = hide ? 'none' : '';
     const next = tr.nextElementSibling;
     if (next && next.classList.contains('desc-row')) next.style.display = hide ? 'none' : '';
@@ -403,6 +484,7 @@ function applyFilters() {{
 
 hideRated.addEventListener('change', applyFilters);
 hideNo.addEventListener('change', applyFilters);
+hideUO.addEventListener('change', applyFilters);
 
 document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click', () => {{
   document.querySelectorAll('.desc-row').forEach(r => r.remove());
@@ -421,9 +503,9 @@ document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click
 }}));
 
 function rate(tr, s) {{
-  if (ratings[tr.dataset.id] === s) delete ratings[tr.dataset.id];
-  else ratings[tr.dataset.id] = s;
-  saveRatings(); applyRatings(); applyFilters();
+  const id = tr.dataset.id;
+  saveRating(id, ratings[id] === s ? null : s);
+  applyRatings(); applyFilters();
 }}
 
 function toggleFold(tr) {{
@@ -596,8 +678,7 @@ document.addEventListener('keydown', e => {{
   }}
 }});
 
-applyRatings();
-applyFilters();
+initRatings();
 </script>
 </body>
 </html>
@@ -621,16 +702,23 @@ def main() -> None:
         action="store_true",
         help="store the full photo URL list for listings missing it, then re-render",
     )
+    parser.add_argument(
+        "--refresh-status",
+        action="store_true",
+        help="re-check status and price of stored listings, then re-render",
+    )
     args = parser.parse_args()
 
     config = load_config()
     listings = load_listings()
 
-    if args.backfill_floorplans or args.backfill_photos:
+    if args.backfill_floorplans or args.backfill_photos or args.refresh_status:
         if args.backfill_floorplans:
             backfill_floorplans(listings)
         if args.backfill_photos:
             backfill_photos(listings)
+        if args.refresh_status:
+            refresh_statuses(listings)
         save_listings(listings)
     elif not args.render_only:
         fetch(config, listings)

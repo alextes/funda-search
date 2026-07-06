@@ -4,10 +4,11 @@
     "min_price": 400000,
     "max_price": 850000,
     "min_area": 75,
-    "min_rooms": null
+    "min_bedrooms": 2
   },
   "pages": 3,
   "fetch_interval_seconds": 60,
+  "status_refresh_interval_seconds": 3600,
   "center": {
     "name": "Dam, Amsterdam",
     "lat": 52.3731,

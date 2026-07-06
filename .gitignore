@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 .DS_Store
+data/ratings.json
+data/.session-secret
+*.tmp
