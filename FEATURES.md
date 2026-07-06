@@ -1,0 +1,26 @@
+# Features
+
+## Done
+
+- [x] Proof of concept: get listing data out of funda (via pyfunda / mobile API — see README)
+- [x] Track seen listings, only fetch new ones (`data/listings.json`)
+- [x] HTML overview: photo, address, wijk/buurt, price, m², €/m², rooms, energy label, distance from center, floor plan link, description
+- [x] Sortable columns, expandable descriptions, "nieuw" badge for listings first seen today
+
+## Planned
+
+- [ ] **Daily morning search** — run `fetch.py` every morning automatically (launchd/cron or a scheduled Claude task) and surface what's new
+- [ ] **Floor plan display** — download floor plan images and show them inline in the overview instead of just linking out
+- [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
+- [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
+- [ ] **Dismiss/shortlist** — mark listings as "not interesting" or "shortlist" so the overview stays clean
+- [ ] **Travel time** — realistic bike/transit time to chosen points (work, center) instead of straight-line distance
+- [ ] **Price history / sold data** — pyfunda exposes price history; flag price drops
+- [ ] **Notifications** — ping (email/Telegram) when a new listing matches the criteria
+
+## Ideas / someday
+
+- [ ] Score listings against a personal weighting (€/m², location, outdoor space, ...)
+- [ ] Map view of active listings
+- [ ] Track listing status changes (under offer, sold) over time
+- [ ] GitHub Pages deploy of the overview (careful: public)

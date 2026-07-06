@@ -1,0 +1,14 @@
+{
+  "location": "amsterdam",
+  "filters": {
+    "max_price": null,
+    "min_area": null,
+    "min_rooms": null
+  },
+  "pages": 3,
+  "center": {
+    "name": "Dam, Amsterdam",
+    "lat": 52.3731,
+    "lon": 4.8926
+  }
+}
