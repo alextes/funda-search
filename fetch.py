@@ -339,6 +339,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   #grid .cells {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .5rem; }}
   #grid .cells img {{ width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 4px; cursor: pointer; display: block; }}
   #show {{ position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 20; display: flex; align-items: center; justify-content: center; }}
+  #grid[hidden], #show[hidden] {{ display: none; }}
   #show img {{ max-width: 96vw; max-height: 92vh; object-fit: contain; cursor: pointer; }}
   #show .bar {{ position: absolute; top: .8rem; right: 1rem; display: flex; gap: 1rem; align-items: center; color: #ddd; font-size: .85rem; }}
   #show .bar button {{ border: 1px solid #777; background: transparent; color: #ddd; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
