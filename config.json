@@ -1,7 +1,8 @@
 {
   "location": "amsterdam",
   "filters": {
-    "max_price": null,
+    "min_price": 400000,
+    "max_price": 850000,
     "min_area": 75,
     "min_rooms": null
   },

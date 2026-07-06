@@ -221,13 +221,22 @@ def backfill_floorplans(listings: dict[str, dict]) -> None:
 
 def render(config: dict, listings: dict[str, dict]) -> None:
     today = date.today().isoformat()
-    min_area = config.get("filters", {}).get("min_area")
+    filters = config.get("filters", {})
+    min_area = filters.get("min_area")
+    min_price = filters.get("min_price")
+    max_price = filters.get("max_price")
+
+    def visible(l: dict) -> bool:
+        if min_area and l.get("living_area") and l["living_area"] < min_area:
+            return False
+        if min_price and l.get("price") and l["price"] < min_price:
+            return False
+        if max_price and l.get("price") and l["price"] > max_price:
+            return False
+        return True
+
     rows = sorted(
-        (
-            l
-            for l in listings.values()
-            if not (min_area and l.get("living_area") and l["living_area"] < min_area)
-        ),
+        filter(visible, listings.values()),
         key=lambda l: (l.get("first_seen") or "", l.get("publication_date") or ""),
         reverse=True,
     )
