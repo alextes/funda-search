@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "funda-search",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["server.py", "--port", "8713"],
+      "port": 8713
+    }
+  ]
+}

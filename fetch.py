@@ -375,6 +375,12 @@ def render(config: dict, listings: dict[str, dict]) -> None:
                       color: #666; border-radius: 4px; padding: .25rem .5rem; font-size: .75rem; cursor: pointer; opacity: 0; }}
   .fp-wrap:hover .fp-flag {{ opacity: 1; }}
   .fp-wrap .fp-flag:hover {{ border-color: #c00; color: #c00; }}
+  .fp-note {{ position: relative; margin: .3rem 0; }}
+  .fp-note .fp-name {{ font-family: ui-monospace, monospace; font-size: .8em; }}
+  .fp-note a {{ color: #0071b3; }}
+  .fp-note .fp-peek {{ display: none; position: absolute; bottom: 1.4rem; left: 0; width: 260px; margin: 0;
+                      background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.25); z-index: 5; }}
+  .fp-note .fp-name:hover ~ .fp-peek, .fp-note a:hover ~ .fp-peek {{ display: block; }}
   kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
   tr.sel > td {{ background: #eaf4fb; }}
   tr[data-status="negotiations"] {{ opacity: .55; }}
@@ -554,19 +560,18 @@ function toggleFold(tr) {{
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
   const id = tr.dataset.id;
-  const flagged = fpFlags[id] || [];
-  const fps = JSON.parse(tr.dataset.fp || '[]').filter(f => !flagged.includes(f.img));
+  const fps = JSON.parse(tr.dataset.fp || '[]');
   // interactive Floorplanner embed when funda has one (the static thumbnail is
   // only 900px); otherwise the full-res detected image, click-through to open.
   // detected plans come from a heuristic, so they carry a "not a floor plan"
   // flag button — flags are stored server-side to hide misfires and to collect
-  // labeled mistakes for tuning the detector
+  // labeled mistakes for tuning the detector; flagged ones collapse to a
+  // one-line note (with the filename, so several notes are tellable apart)
+  // that stays undoable across fold reopens
   const fpHtml = fps.length
     ? fps.map(f => f.embed
         ? `<iframe class="fp-embed" loading="lazy" src="${{f.embed}}"></iframe>`
-        : `<div class="fp-wrap"><a href="${{f.img}}" target="_blank"><img src="${{f.img}}" loading="lazy" alt="floor plan"></a>${{
-            f.detected ? `<button class="fp-flag" data-url="${{f.img}}" title="hide and record as a detector mistake">not a floor plan ✕</button>` : ''
-          }}</div>`
+        : `<div class="fp-wrap" data-url="${{f.img}}" data-detected="${{f.detected ? 1 : 0}}"></div>`
       ).join('')
     : '<div class="none">no floor plan</div>';
   const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
@@ -593,22 +598,25 @@ function toggleFold(tr) {{
   fpDiv.innerHTML = photosLink + mapHtml + fpHtml;
   const gl = fpDiv.querySelector('[data-open-grid]');
   if (gl) gl.addEventListener('click', e => {{ e.preventDefault(); openGrid(tr); }});
-  function bindFlag(wrap) {{
-    wrap.querySelector('.fp-flag')?.addEventListener('click', e => {{
-      e.preventDefault();
-      const url = wrap.querySelector('.fp-flag').dataset.url;
-      saveFpFlag(id, url, true);
-      wrap.innerHTML = '<div class="none">flagged as not a floor plan · <a href="#">undo</a></div>';
-      wrap.querySelector('a').addEventListener('click', e2 => {{
-        e2.preventDefault();
-        saveFpFlag(id, url, false);
-        wrap.innerHTML = `<a href="${{url}}" target="_blank"><img src="${{url}}" loading="lazy" alt="floor plan"></a>
-          <button class="fp-flag" data-url="${{url}}" title="hide and record as a detector mistake">not a floor plan ✕</button>`;
-        bindFlag(wrap);
+  function renderFpWrap(wrap) {{
+    const url = wrap.dataset.url;
+    if ((fpFlags[id] || []).includes(url)) {{
+      const name = url.split('/').pop();
+      wrap.innerHTML = `<div class="none fp-note"><span class="fp-name">${{name}}</span> flagged as not a floor plan · <a href="#">undo</a>
+        <img class="fp-peek" loading="lazy" src="${{url.replace('.jpg', '_360.jpg')}}" alt=""></div>`;
+      wrap.querySelector('a').addEventListener('click', e => {{
+        e.preventDefault(); saveFpFlag(id, url, false); renderFpWrap(wrap);
       }});
-    }});
+    }} else {{
+      wrap.innerHTML = `<a href="${{url}}" target="_blank"><img src="${{url}}" loading="lazy" alt="floor plan"></a>${{
+        wrap.dataset.detected === '1' ? '<button class="fp-flag" title="hide and record as a detector mistake">not a floor plan ✕</button>' : ''
+      }}`;
+      wrap.querySelector('.fp-flag')?.addEventListener('click', e => {{
+        e.preventDefault(); saveFpFlag(id, url, true); renderFpWrap(wrap);
+      }});
+    }}
   }}
-  fpDiv.querySelectorAll('.fp-wrap').forEach(bindFlag);
+  fpDiv.querySelectorAll('.fp-wrap').forEach(renderFpWrap);
   fold.append(descDiv, fpDiv);
   cell.append(fold);
   row.append(cell);
