@@ -10,7 +10,13 @@ This was the big unknown, so it was the first proof of concept. Findings:
 - **[pyfunda](https://github.com/0xMH/pyfunda) works.** It talks to funda's reverse-engineered mobile app API (`*.funda.io`), which returns clean JSON: no scraping, no browser, no CAPTCHA. This is the approach used here.
 - **Fallbacks if pyfunda breaks:** the website embeds full listing data in a `__NUXT_DATA__` JSON blob (devalue format) that can be extracted from a real Chrome session, which passes DataDome fine. Plain HTML scraping of the cards also works from a real browser.
 
-The mobile API gives us everything: price, floor area, rooms, energy label, wijk + buurt, coordinates, full description, photos, and floor plan URLs.
+The mobile API gives us everything: price, floor area, rooms, energy label, wijk + buurt, coordinates, full description, photos, and floor plan URLs. The app records price and status changes as an append-only observation history; older records receive one clearly marked legacy snapshot because changes from before tracking began cannot be reconstructed.
+
+The overview also spatially joins listing coordinates against Amsterdam's **Woningwaardekaart 2025**. Its bands are based on interpolated Kadaster transaction €/m² and are deliberately displayed as a historic range, not a current valuation. The bundled source file is `reference/woningwaarde-2025.geojson`; refresh it from the municipality with:
+
+```bash
+.venv/bin/python fetch.py --refresh-price-bands
+```
 
 ## Usage
 
@@ -40,7 +46,7 @@ Search settings (city, price/area filters, number of pages, "center" reference p
 
 ## How it works
 
-- `fetch.py` searches funda (newest first), skips listings already in `data/listings.json`, fetches details for the new ones (description, coordinates, floor plans), and computes derived fields: **€/m²** and **distance from the center** (haversine to Dam).
+- `fetch.py` searches funda (newest first), skips listings already in `data/listings.json`, fetches details for the new ones (description, coordinates, floor plans), and computes derived fields: **€/m²**, **2025 local transaction-price band**, and **distance from the center** (haversine to Dam).
 - `data/listings.json` is the state: everything we've ever seen, keyed by listing id. New-since-last-run rows get a "nieuw" badge in the overview.
 - `overview.html` is a self-contained page: sortable columns (click a header), click a row to expand the description, links to the funda page and the floor plan.
 

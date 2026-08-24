@@ -25,17 +25,19 @@
 - [x] Password gate on the server (FUNDA_SEARCH_PASSWORD env, 30-day session cookie)
 - [x] Server-side shared ratings (`data/ratings.json`, POST /rate) — multiple people/browsers see the same ratings; localStorage remains the static-page fallback and migrates over on first load
 - [x] Minimum bedrooms filter (config `filters.min_bedrooms`)
+- [x] Append-only asking-price and status history; legacy listings get one explicit snapshot event
+- [x] Amsterdam Woningwaardekaart 2025 transaction €/m² bands, spatially joined to listings with below/within/above comparison
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
 - [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`
 - [ ] **Travel time** — realistic bike/transit time to chosen points (work, center) instead of straight-line distance
-- [ ] **Price history / sold data** — pyfunda exposes price history; flag price drops
+- [ ] **History signals** — flag price drops and surface meaningful status transitions from our own observation history
 - [ ] **Notifications** — ping (email/Telegram) when a new listing matches the criteria
 
 ## Ideas / someday
 
-- [ ] **Overbidding estimate per neighborhood** — funda's sold data (pyfunda supports `category="sold"` + price history) could show typical sold-vs-asking deltas per wijk, to estimate the *real* cost of a listing
-- [ ] **Neighborhood €/m² benchmark** — even without overbidding data, an average asking €/m² per wijk/buurt (from our own accumulating listing data, or a broader sold-listings sweep) would show whether a listing's €/m² is a good deal for its area
+- [ ] **Overbidding estimate per neighborhood** — requires a reliable source of actual transaction prices; Funda's sold status and price history expose the final asking price, not consistently the deed price
+- [x] **Neighborhood €/m² benchmark** — Amsterdam's 2025 interpolated transaction-price bands provide a first historic local benchmark
 
 - [ ] Score listings against a personal weighting (€/m², location, outdoor space, ...)
 - [ ] Map view of active listings

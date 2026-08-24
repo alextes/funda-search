@@ -91,8 +91,9 @@ def load_fp_flags() -> dict:
 def fetch_once() -> None:
     config = core.load_config()  # re-read each round so config edits apply live
     listings = core.load_listings()
+    histories_changed = core.ensure_histories(listings)
     total, new = core.fetch(config, listings)
-    if new:
+    if new or histories_changed:
         core.save_listings(listings)
     core.render(config, listings)
     state["last_fetch"] = datetime.now()
@@ -104,9 +105,10 @@ def fetch_once() -> None:
 def status_refresh_once() -> None:
     config = core.load_config()
     listings = core.load_listings()
+    histories_changed = core.ensure_histories(listings)
     changed = core.refresh_statuses(listings)
     core.save_listings(listings)
-    if changed:
+    if changed or histories_changed:
         core.render(config, listings)
     state["last_status_refresh"] = datetime.now()
     log(f"status refresh done ({changed} changes)")

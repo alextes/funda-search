@@ -16,7 +16,7 @@ import math
 import sys
 import time
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from funda import Funda
@@ -26,6 +26,16 @@ ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data" / "listings.json"
 OVERVIEW_FILE = ROOT / "overview.html"
 CONFIG_FILE = ROOT / "config.json"
+PRICE_BANDS_FILE = ROOT / "reference" / "woningwaarde-2025.geojson"
+PRICE_BANDS_YEAR = 2025
+PRICE_BANDS_URL = (
+    "https://maps.amsterdam.nl/open_geodata/geojson_lnglat.php/"
+    "woningwaarde-2025.geojson?KAARTLAAG=WONINGWAARDE_2025&THEMA=woningwaarde"
+)
+PRICE_BANDS_SOURCE_URL = (
+    "https://ckan.bertha.geodan.nl/nl/dataset/"
+    "amsterdam-open-geodata-641-woningwaarde-2025"
+)
 
 DETAIL_FETCH_DELAY_S = 1.0
 IMAGE_FETCH_DELAY_S = 0.15
@@ -74,6 +84,157 @@ def load_listings() -> dict[str, dict]:
     if DATA_FILE.exists():
         return json.loads(DATA_FILE.read_text())
     return {}
+
+
+def observed_at() -> str:
+    """Return a stable, timezone-aware timestamp for a new observation."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def ensure_histories(listings: dict[str, dict]) -> bool:
+    """Backfill one honest snapshot event for records created before history existed."""
+    changed = False
+    for listing in listings.values():
+        first_observed = listing.get("first_seen") or listing.get("publication_date") or observed_at()
+        if "price_history" not in listing:
+            listing["price_history"] = []
+            if listing.get("price") is not None:
+                listing["price_history"].append(
+                    {
+                        "price": listing["price"],
+                        "observed_at": first_observed,
+                        "source": "legacy_snapshot",
+                    }
+                )
+            changed = True
+        if "status_history" not in listing:
+            listing["status_history"] = []
+            if listing.get("status"):
+                listing["status_history"].append(
+                    {
+                        "status": listing["status"],
+                        "observed_at": first_observed,
+                        "source": "legacy_snapshot",
+                    }
+                )
+            changed = True
+    return changed
+
+
+def record_observation(
+    listing: dict,
+    *,
+    price: int | None = None,
+    status: str | None = None,
+    timestamp: str | None = None,
+    source: str = "funda",
+) -> bool:
+    """Append price/status change events, suppressing unchanged poll observations."""
+    timestamp = timestamp or observed_at()
+    changed = False
+    if price is not None:
+        history = listing.setdefault("price_history", [])
+        if not history or history[-1].get("price") != price:
+            history.append({"price": price, "observed_at": timestamp, "source": source})
+            changed = True
+    if status:
+        history = listing.setdefault("status_history", [])
+        if not history or history[-1].get("status") != status:
+            history.append({"status": status, "observed_at": timestamp, "source": source})
+            changed = True
+    return changed
+
+
+def refresh_price_bands() -> None:
+    """Download and validate the municipality's public 2025 price-band GeoJSON."""
+    req = urllib.request.Request(PRICE_BANDS_URL, headers={"User-Agent": BROWSER_UA})
+    payload = urllib.request.urlopen(req, timeout=30).read().decode()
+    data = json.loads(payload)
+    if data.get("type") != "FeatureCollection" or not data.get("features"):
+        raise ValueError("price-band download is not a non-empty GeoJSON FeatureCollection")
+    write_atomic(PRICE_BANDS_FILE, json.dumps(data, separators=(",", ":")))
+    print(f"wrote {PRICE_BANDS_FILE.relative_to(ROOT)} with {len(data['features'])} bands")
+
+
+def _point_in_ring(lon: float, lat: float, ring: list) -> bool:
+    """Ray-casting point-in-polygon test for one GeoJSON linear ring."""
+    inside = False
+    previous = len(ring) - 1
+    for current, coordinate in enumerate(ring):
+        current_lon, current_lat = coordinate[:2]
+        previous_lon, previous_lat = ring[previous][:2]
+        crosses = (current_lat > lat) != (previous_lat > lat)
+        if crosses:
+            boundary_lon = (
+                (previous_lon - current_lon)
+                * (lat - current_lat)
+                / (previous_lat - current_lat)
+                + current_lon
+            )
+            if lon < boundary_lon:
+                inside = not inside
+        previous = current
+    return inside
+
+
+def _point_in_geometry(lon: float, lat: float, geometry: dict) -> bool:
+    coordinates = geometry.get("coordinates") or []
+    if geometry.get("type") == "Polygon":
+        polygons = [coordinates]
+    elif geometry.get("type") == "MultiPolygon":
+        polygons = coordinates
+    else:
+        return False
+    return any(
+        polygon
+        and _point_in_ring(lon, lat, polygon[0])
+        and not any(_point_in_ring(lon, lat, hole) for hole in polygon[1:])
+        for polygon in polygons
+    )
+
+
+def _parse_price_band(properties: dict) -> dict | None:
+    label = str(properties.get("LABEL") or "").strip()
+    lower = properties.get("SELECTIE")
+    if not label or not isinstance(lower, (int, float)):
+        return None
+    upper = None
+    if "-" in label:
+        try:
+            lower_text, upper_text = label.split("-", 1)
+            lower, upper = int(lower_text.strip()), int(upper_text.strip())
+        except ValueError:
+            return None
+    return {
+        "year": PRICE_BANDS_YEAR,
+        "lower": int(lower),
+        "upper": int(upper) if upper is not None else None,
+        "raw_label": label,
+    }
+
+
+def load_price_bands() -> list[dict]:
+    if not PRICE_BANDS_FILE.exists():
+        return []
+    data = json.loads(PRICE_BANDS_FILE.read_text())
+    bands = []
+    for feature in data.get("features", []):
+        band = _parse_price_band(feature.get("properties") or {})
+        geometry = feature.get("geometry")
+        if band and geometry:
+            band["geometry"] = geometry
+            bands.append(band)
+    return bands
+
+
+def price_band_for_listing(listing: dict, bands: list[dict]) -> dict | None:
+    lat, lon = listing.get("lat"), listing.get("lon")
+    if lat is None or lon is None:
+        return None
+    for band in bands:
+        if _point_in_geometry(lon, lat, band["geometry"]):
+            return {key: value for key, value in band.items() if key != "geometry"}
+    return None
 
 
 def write_atomic(path: Path, text: str) -> None:
@@ -146,7 +307,7 @@ def build_record(item, detail, config: dict) -> dict:
     if pub_date is not None:
         pub_date = str(pub_date)[:10]
 
-    return {
+    record = {
         "id": item.global_id or item.id,
         "url": item.url,
         "title": item.title,
@@ -171,6 +332,8 @@ def build_record(item, detail, config: dict) -> dict:
         "description": detail.description,
         "status": str(detail.status or item.status or ""),
     }
+    record_observation(record, price=price, status=record["status"])
+    return record
 
 
 def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
@@ -196,12 +359,14 @@ def refresh_statuses(listings: dict[str, dict]) -> int:
     """Re-fetch status and price for listings not yet known to be off the market."""
     todo = [l for l in listings.values() if l.get("status") not in GONE_STATUSES]
     changed = 0
+    ensure_histories(listings)
     with Funda() as client:
         for l in todo:
             try:
                 detail = client.listing(l["id"])
             except Exception as e:
                 if "404" in str(e) or "not found" in str(e).lower():
+                    record_observation(l, status="unavailable")
                     l["status"] = "unavailable"
                     changed += 1
                 else:
@@ -211,11 +376,13 @@ def refresh_statuses(listings: dict[str, dict]) -> int:
             new_status = str(detail.status or l.get("status") or "")
             if new_status != l.get("status"):
                 print(f"  {l['title']}: {l.get('status') or '?'} -> {new_status}")
+                record_observation(l, status=new_status)
                 l["status"] = new_status
                 changed += 1
             price = detail.price.amount if detail.price else None
             if price and price != l.get("price"):
                 print(f"  {l['title']}: price {l.get('price')} -> {price}")
+                record_observation(l, price=price)
                 l["price"] = price
                 if l.get("living_area"):
                     l["price_per_m2"] = round(price / l["living_area"])
@@ -261,6 +428,7 @@ def backfill_floorplans(listings: dict[str, dict]) -> None:
 
 
 def render(config: dict, listings: dict[str, dict]) -> None:
+    bands = load_price_bands()
     filters = config.get("filters", {})
     min_area = filters.get("min_area")
     min_price = filters.get("min_price")
@@ -292,8 +460,39 @@ def render(config: dict, listings: dict[str, dict]) -> None:
             return "<td>–</td>"
         return f"<td>{html.escape(str(value))}{suffix}</td>"
 
+    def format_euros(value: int) -> str:
+        return f"€ {value:,}".replace(",", ".")
+
+    def format_band(band: dict | None, asking_ppm2: int | None) -> tuple[str, int, str]:
+        if not band:
+            return "–", 0, ""
+        lower, upper = band["lower"], band["upper"]
+        label = (
+            f"{format_euros(lower)}–{upper:,}/m²".replace(",", ".")
+            if upper is not None
+            else f"> {format_euros(lower)}/m²"
+        )
+        comparison = ""
+        if asking_ppm2 is not None:
+            if asking_ppm2 < lower:
+                comparison = "below"
+            elif upper is not None and asking_ppm2 > upper:
+                comparison = "above"
+            else:
+                comparison = "within"
+        return label, lower, comparison
+
     body_rows = []
     for l in rows:
+        band = price_band_for_listing(l, bands)
+        band_label, band_sort, band_comparison = format_band(band, l.get("price_per_m2"))
+        history_data = json.dumps(
+            {
+                "prices": l.get("price_history") or [],
+                "statuses": l.get("status_history") or [],
+            },
+            separators=(",", ":"),
+        )
         fps = l.get("floorplans") or []
         fp_data = json.dumps(
             [
@@ -310,12 +509,12 @@ def render(config: dict, listings: dict[str, dict]) -> None:
             if l.get("photo_url")
             else ""
         )
-        price = f"€ {l['price']:,}".replace(",", ".") if l.get("price") else "–"
-        ppm2 = f"€ {l['price_per_m2']:,}".replace(",", ".") if l.get("price_per_m2") else "–"
+        price = format_euros(l["price"]) if l.get("price") else "–"
+        ppm2 = format_euros(l["price_per_m2"]) if l.get("price_per_m2") else "–"
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}">
+            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   {td(l.get('wijk'))}
@@ -323,6 +522,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td data-sort="{l.get('price') or 0}">{price}</td>
   {td(l.get('living_area'), ' m²')}
   <td data-sort="{l.get('price_per_m2') or 0}">{ppm2}</td>
+  <td class="band {band_comparison}" data-sort="{band_sort}" title="Amsterdam Woningwaardekaart 2025: interpolated transaction-price band">{band_label}{f'<span>{band_comparison}</span>' if band_comparison else ''}</td>
   {td(l.get('rooms'))}
   {td(l.get('energy_label'))}
   <td data-sort="{l.get('distance_km') or 999}">{l.get('distance_km') if l.get('distance_km') is not None else '–'} km</td>
@@ -354,6 +554,13 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   th:hover {{ color: #f7a100; }}
   .photo img {{ width: 72px; height: 48px; object-fit: cover; border-radius: 4px; display: block; }}
   .addr a {{ color: #0071b3; text-decoration: none; }} .addr a:hover {{ text-decoration: underline; }}
+  td.band span {{ display: block; width: fit-content; margin-top: .15rem; padding: .05rem .3rem;
+                  border-radius: 3px; font-size: .68rem; color: #555; background: #eee; }}
+  td.band.below span {{ color: #176b36; background: #e4f4e9; }}
+  td.band.above span {{ color: #8b2f28; background: #f9e7e5; }}
+  .history {{ margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid #ddd; color: #555; }}
+  .history strong {{ display: block; color: #222; margin-bottom: .3rem; }}
+  .history .event {{ font-size: .8rem; line-height: 1.5; }}
   tr {{ cursor: pointer; }}
   .rate {{ display: flex; gap: .2rem; }}
   .rate button {{ width: 1.7rem; height: 1.7rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
@@ -401,6 +608,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <body>
 <h1>funda-search · {html.escape(config['location'])}</h1>
 <p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
+<p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
@@ -411,7 +619,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <table id="t">
 <thead><tr>
   <th></th><th>Address</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
+  <th>2025 band</th><th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(body_rows)}
@@ -561,6 +769,7 @@ function toggleFold(tr) {{
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
   const id = tr.dataset.id;
   const fps = JSON.parse(tr.dataset.fp || '[]');
+  const history = JSON.parse(tr.dataset.history || '{{"prices":[],"statuses":[]}}');
   // interactive Floorplanner embed when funda has one (the static thumbnail is
   // only 900px); otherwise the full-res detected image, click-through to open.
   // detected plans come from a heuristic, so they carry a "not a floor plan"
@@ -587,12 +796,39 @@ function toggleFold(tr) {{
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
-  cell.colSpan = 12;
+  cell.colSpan = 13;
   const fold = document.createElement('div');
   fold.className = 'fold';
   const descDiv = document.createElement('div');
   descDiv.className = 'fold-desc';
-  descDiv.textContent = tr.dataset.desc || '';
+  const historyDiv = document.createElement('div');
+  historyDiv.className = 'history';
+  const historyTitle = document.createElement('strong');
+  historyTitle.textContent = 'Observed history';
+  historyDiv.append(historyTitle);
+  const events = [
+    ...(history.prices || []).map(event => ({{...event, kind: 'price'}})),
+    ...(history.statuses || []).map(event => ({{...event, kind: 'status'}})),
+  ].sort((a, b) => (a.observed_at || '').localeCompare(b.observed_at || ''));
+  if (!events.length) {{
+    const empty = document.createElement('div');
+    empty.className = 'event';
+    empty.textContent = 'No observations yet';
+    historyDiv.append(empty);
+  }} else {{
+    for (const event of events) {{
+      const line = document.createElement('div');
+      line.className = 'event';
+      const value = event.kind === 'price'
+        ? `asking € ${{Number(event.price).toLocaleString('nl-NL')}}`
+        : `status ${{event.status}}`;
+      line.textContent = `${{event.observed_at || '?'}} · ${{value}}`;
+      historyDiv.append(line);
+    }}
+  }}
+  const descriptionText = document.createElement('div');
+  descriptionText.textContent = tr.dataset.desc || '';
+  descDiv.append(historyDiv, descriptionText);
   const fpDiv = document.createElement('div');
   fpDiv.className = 'fold-right';
   fpDiv.innerHTML = photosLink + mapHtml + fpHtml;
@@ -790,21 +1026,40 @@ def main() -> None:
         action="store_true",
         help="re-check status and price of stored listings, then re-render",
     )
+    parser.add_argument(
+        "--refresh-price-bands",
+        action="store_true",
+        help="download Amsterdam's 2025 transaction-price bands, then re-render",
+    )
     args = parser.parse_args()
 
     config = load_config()
     listings = load_listings()
+    histories_changed = ensure_histories(listings)
 
-    if args.backfill_floorplans or args.backfill_photos or args.refresh_status:
+    if args.refresh_price_bands:
+        refresh_price_bands()
+
+    if (
+        args.backfill_floorplans
+        or args.backfill_photos
+        or args.refresh_status
+        or args.refresh_price_bands
+    ):
         if args.backfill_floorplans:
             backfill_floorplans(listings)
         if args.backfill_photos:
             backfill_photos(listings)
         if args.refresh_status:
             refresh_statuses(listings)
-        save_listings(listings)
+        histories_changed = histories_changed or bool(
+            args.backfill_floorplans or args.backfill_photos or args.refresh_status
+        )
     elif not args.render_only:
-        fetch(config, listings)
+        _, new = fetch(config, listings)
+        histories_changed = histories_changed or bool(new)
+
+    if histories_changed:
         save_listings(listings)
 
     render(config, listings)
