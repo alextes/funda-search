@@ -12,7 +12,7 @@ This was the big unknown, so it was the first proof of concept. Findings:
 
 The mobile API gives us everything: price, floor area, rooms, energy label, wijk + buurt, coordinates, full description, photos, and floor plan URLs. The app records Funda price and market-status changes as an append-only observation history; older records receive one clearly marked legacy snapshot because changes from before tracking began cannot be reconstructed.
 
-Opinion scores and house-hunt progress are independent. A listing can keep its 0–3 score while its personal status moves through viewing requested, viewing planned, viewed, bid, sold, or bought. Personal statuses are shared across signed-in browsers and stored in `data/tracking_statuses.json`. Sold and otherwise unavailable listings remain in the generated overview but are hidden by default; uncheck **hide sold** to revisit them.
+Opinion scores and house-hunt progress are independent. A listing can keep its 0–3 score while its personal status moves through call, viewing requested, viewing planned, viewed, bid, sold, or bought. Personal statuses are shared across signed-in browsers and stored in `data/tracking_statuses.json`. Sold and otherwise unavailable listings remain in the generated overview but are hidden by default; uncheck **hide sold** to revisit them.
 
 The overview also spatially joins listing coordinates against Amsterdam's **Woningwaardekaart 2025**. Its bands are based on interpolated Kadaster transaction €/m² and are deliberately displayed as a historic range, not a current valuation. The bundled source file is `reference/woningwaarde-2025.geojson`; refresh it from the municipality with:
 

@@ -754,6 +754,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
+    <option value="call">call</option>
     <option value="viewing_requested">req.</option>
     <option value="viewing_planned">plan</option>
     <option value="viewed">seen</option>
@@ -866,7 +867,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <h1>funda-search · {html.escape(config['location'])}</h1>
 <p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
-<p class="meta" id="statusLegend"><strong>Status:</strong> req. = viewing requested · plan = viewing planned · seen = viewed · bid = bid placed · sold · bought</p>
+<p class="meta" id="statusLegend"><strong>Status:</strong> call · req. = viewing requested · plan = viewing planned · seen = viewed · bid = bid placed · sold · bought</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>

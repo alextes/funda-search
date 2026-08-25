@@ -38,7 +38,7 @@ PASSWORD = os.environ.get("FUNDA_SEARCH_PASSWORD")
 RATINGS_FILE = core.ROOT / "data" / "ratings.json"
 TRACKING_STATUSES_FILE = core.ROOT / "data" / "tracking_statuses.json"
 TRACKING_STATUS_VALUES = frozenset(
-    {"viewing_requested", "viewing_planned", "viewed", "bid", "sold", "bought"}
+    {"call", "viewing_requested", "viewing_planned", "viewed", "bid", "sold", "bought"}
 )
 # false-positive floor plan flags (id -> [image urls]): hides detector misfires
 # in the UI and doubles as a labeled mistake-set for tuning the detector

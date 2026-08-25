@@ -14,11 +14,11 @@ class TrackingStatusTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(
             server, "TRACKING_STATUSES_FILE", Path(directory) / "tracking_statuses.json"
         ):
-            server.save_tracking_status("8114731", "viewing_requested")
+            server.save_tracking_status("8114731", "call")
             server.save_tracking_status("123", "sold")
             self.assertEqual(
                 server.load_tracking_statuses(),
-                {"8114731": "viewing_requested", "123": "sold"},
+                {"8114731": "call", "123": "sold"},
             )
 
             server.save_tracking_status("8114731", None)
@@ -32,6 +32,7 @@ class TrackingStatusTests(unittest.TestCase):
         self.assertEqual(
             server.TRACKING_STATUS_VALUES,
             {
+                "call",
                 "viewing_requested",
                 "viewing_planned",
                 "viewed",
