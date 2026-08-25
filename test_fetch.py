@@ -206,12 +206,12 @@ class PriceBandTests(unittest.TestCase):
             "floorplans": [],
             "photo_urls": [],
             "description": "Description",
-            "status": "available",
+            "status": "sold",
             "price_history": [
                 {"price": 500_000, "observed_at": "2026-08-01", "source": "funda"}
             ],
             "status_history": [
-                {"status": "available", "observed_at": "2026-08-01", "source": "funda"}
+                {"status": "sold", "observed_at": "2026-08-01", "source": "funda"}
             ],
         }
         bands = [
@@ -236,7 +236,14 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("€ 5.848–6.683/m²", page)
         self.assertIn('class="band below"', page)
         self.assertIn("Observed history", page)
-        self.assertIn("cell.colSpan = 13", page)
+        self.assertIn("cell.colSpan = 14", page)
+        self.assertIn('data-market-gone="1"', page)
+        self.assertIn('<input type="checkbox" id="hideSold" checked>', page)
+        self.assertIn("<th></th><th>Address</th><th>Status</th>", page)
+        self.assertIn('<option value="viewing_requested">viewing requested</option>', page)
+        self.assertIn('<option value="bought">bought 🎉</option>', page)
+        self.assertIn("tracking-statuses.json", page)
+        self.assertIn("trackingStatus === 'sold'", page)
 
 
 if __name__ == "__main__":

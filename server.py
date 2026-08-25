@@ -6,7 +6,8 @@ configured interval (default 60s), so the list is always at most that old
 while the server runs; roughly hourly it also re-checks status/price of
 stored listings so sold / under-offer entries don't linger. The HTTP side
 serves the latest overview.html from disk (written atomically by
-fetch.render) and a small ratings API shared by everyone using the page.
+fetch.render) and small ratings/tracking APIs shared by everyone using the
+page.
 
 If FUNDA_SEARCH_PASSWORD is set, everything except /healthz sits behind a
 login form; the session cookie lasts 30 days.
@@ -35,6 +36,10 @@ SESSION_MAX_AGE_S = 30 * 24 * 3600
 
 PASSWORD = os.environ.get("FUNDA_SEARCH_PASSWORD")
 RATINGS_FILE = core.ROOT / "data" / "ratings.json"
+TRACKING_STATUSES_FILE = core.ROOT / "data" / "tracking_statuses.json"
+TRACKING_STATUS_VALUES = frozenset(
+    {"viewing_requested", "viewing_planned", "viewed", "bid", "sold", "bought"}
+)
 # false-positive floor plan flags (id -> [image urls]): hides detector misfires
 # in the UI and doubles as a labeled mistake-set for tuning the detector
 FP_FLAGS_FILE = core.ROOT / "data" / "fp_flags.json"
@@ -42,6 +47,7 @@ SECRET_FILE = core.ROOT / "data" / ".session-secret"
 
 state = {"last_fetch": None, "fetch_count": 0, "last_error": None, "last_status_refresh": None}
 ratings_lock = threading.Lock()
+tracking_statuses_lock = threading.Lock()
 fp_flags_lock = threading.Lock()
 
 LOGIN_PAGE = """<!doctype html>
@@ -80,6 +86,25 @@ def load_ratings() -> dict:
     if RATINGS_FILE.exists():
         return json.loads(RATINGS_FILE.read_text())
     return {}
+
+
+def load_tracking_statuses() -> dict:
+    if TRACKING_STATUSES_FILE.exists():
+        return json.loads(TRACKING_STATUSES_FILE.read_text())
+    return {}
+
+
+def save_tracking_status(listing_id: str, tracking_status: str | None) -> None:
+    if tracking_status is not None and tracking_status not in TRACKING_STATUS_VALUES:
+        raise ValueError("invalid tracking status")
+    with tracking_statuses_lock:
+        statuses = load_tracking_statuses()
+        if tracking_status is None:
+            statuses.pop(listing_id, None)
+        else:
+            statuses[listing_id] = tracking_status
+        TRACKING_STATUSES_FILE.parent.mkdir(exist_ok=True)
+        core.write_atomic(TRACKING_STATUSES_FILE, json.dumps(statuses, indent=1))
 
 
 def load_fp_flags() -> dict:
@@ -162,6 +187,10 @@ class Handler(BaseHTTPRequestHandler):
             with ratings_lock:
                 body = json.dumps(load_ratings()).encode()
             self.respond(200, "application/json; charset=utf-8", body)
+        elif path == "/tracking-statuses.json":
+            with tracking_statuses_lock:
+                body = json.dumps(load_tracking_statuses()).encode()
+            self.respond(200, "application/json; charset=utf-8", body)
         elif path == "/fpflags.json":
             with fp_flags_lock:
                 body = json.dumps(load_fp_flags()).encode()
@@ -213,6 +242,18 @@ class Handler(BaseHTTPRequestHandler):
                     ratings[listing_id] = score
                 RATINGS_FILE.parent.mkdir(exist_ok=True)
                 core.write_atomic(RATINGS_FILE, json.dumps(ratings, indent=1))
+            self.respond(204, "text/plain", b"")
+        elif path == "/track":
+            try:
+                data = json.loads(body)
+                listing_id = str(data["id"])
+                tracking_status = data["status"]
+                if tracking_status == "":
+                    tracking_status = None
+                save_tracking_status(listing_id, tracking_status)
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError) as e:
+                self.respond(400, "text/plain", f"bad request: {e}".encode())
+                return
             self.respond(204, "text/plain", b"")
         elif path == "/flag-fp":
             try:

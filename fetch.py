@@ -588,8 +588,6 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     min_bedrooms = filters.get("min_bedrooms")
 
     def visible(l: dict) -> bool:
-        if l.get("status") in GONE_STATUSES:
-            return False
         if min_area and l.get("living_area") and l["living_area"] < min_area:
             return False
         if min_price and l.get("price") and l["price"] < min_price:
@@ -666,9 +664,18 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}">
+            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
+  <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}">
+    <option value="">—</option>
+    <option value="viewing_requested">viewing requested</option>
+    <option value="viewing_planned">viewing planned</option>
+    <option value="viewed">viewed</option>
+    <option value="bid">bid</option>
+    <option value="sold">sold</option>
+    <option value="bought">bought 🎉</option>
+  </select></td>
   {td(l.get('wijk'))}
   {td(l.get('neighbourhood'))}
   <td data-sort="{l.get('price') or 0}">{price}</td>
@@ -720,6 +727,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .rate button:hover {{ border-color: #f7a100; color: #f7a100; }}
   .rate button.on {{ background: #f7a100; border-color: #f7a100; color: #fff; }}
   .rate button[data-s="0"].on {{ background: #999; border-color: #999; }}
+  .tracking-select {{ max-width: 10.5rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
+                      padding: .3rem .4rem; color: #444; font: inherit; cursor: pointer; }}
+  tr[data-tracking="sold"] .tracking-select {{ color: #777; }}
+  tr[data-tracking="bought"] .tracking-select {{ border-color: #f7a100; color: #9b6200; }}
   tr.desc-row {{ cursor: auto; }} tr.desc-row > td {{ white-space: normal; background: #fafafa; }}
   .fold {{ display: flex; gap: 1.5rem; align-items: flex-start; }}
   .fold-desc {{ flex: 1 1 50%; color: #444; white-space: pre-line; max-width: 50%; }}
@@ -743,6 +754,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   kbd {{ background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 0 .3rem; font-size: .75rem; font-family: inherit; }}
   tr.sel > td {{ background: #eaf4fb; }}
   tr[data-status="negotiations"] {{ opacity: .55; }}
+  body.hide-sold tr[data-tracking="sold"],
+  body.hide-sold tr[data-market-gone="1"]:not([data-tracking="bought"]) {{ display: none; }}
   .uo-tag {{ background: #e5e5e5; color: #555; border-radius: 3px; font-size: .7rem; padding: .1rem .35rem; margin-left: .4rem; }}
   #grid {{ position: fixed; inset: 0; background: rgba(255,255,255,.98); z-index: 10; overflow-y: auto; padding: 1rem; }}
   #grid header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: .8rem; }}
@@ -757,7 +770,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   #show .bar button {{ border: 1px solid #777; background: transparent; color: #ddd; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
 </style>
 </head>
-<body>
+<body class="hide-sold">
 <h1>funda-search · {html.escape(config['location'])}</h1>
 <p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
@@ -766,11 +779,12 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
   <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
+  <label><input type="checkbox" id="hideSold" checked> hide sold</label>
   <span id="counts" class="meta"></span>
 </div>
 <table id="t">
 <thead><tr>
-  <th></th><th>Address</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
+  <th></th><th>Address</th><th>Status</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
   <th>2025 band</th><th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
@@ -798,11 +812,14 @@ for (const cell of document.querySelectorAll('td.listed')) {{
 const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
 const hideUO = document.getElementById('hideUO');
+const hideSold = document.getElementById('hideSold');
 
-// ratings live on the server (shared across browsers/people); localStorage is
-// the fallback when the page is opened statically (file://, python -m http.server)
+// ratings and personal tracking statuses live on the server (shared across
+// browsers/people); localStorage is the fallback for a statically opened page
 let ratings = {{}};
 let serverRatings = false;
+let trackingStatuses = {{}};
+let serverTrackingStatuses = false;
 
 function postRate(id, score) {{
   fetch('rate', {{
@@ -817,6 +834,21 @@ function saveRating(id, score) {{
   else ratings[id] = score;
   if (serverRatings) postRate(id, score);
   else localStorage.setItem('funda-ratings', JSON.stringify(ratings));
+}}
+
+function postTrackingStatus(id, status) {{
+  fetch('track', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{id, status}}),
+  }}).catch(() => {{}});
+}}
+
+function saveTrackingStatus(id, status) {{
+  if (!status) delete trackingStatuses[id];
+  else trackingStatuses[id] = status;
+  if (serverTrackingStatuses) postTrackingStatus(id, status || null);
+  else localStorage.setItem('funda-tracking-statuses', JSON.stringify(trackingStatuses));
 }}
 
 // false-positive floor plan flags: id -> [image urls]; same server-first,
@@ -840,11 +872,19 @@ function saveFpFlag(id, url, flagged) {{
   }}
 }}
 
-async function initRatings() {{
+async function initState() {{
   const local = JSON.parse(localStorage.getItem('funda-ratings') || '{{}}');
+  const localTracking = JSON.parse(localStorage.getItem('funda-tracking-statuses') || '{{}}');
   try {{
     const res = await fetch('ratings.json', {{cache: 'no-store'}});
     if (res.ok) {{ ratings = await res.json(); serverRatings = true; }}
+  }} catch (e) {{}}
+  try {{
+    const res = await fetch('tracking-statuses.json', {{cache: 'no-store'}});
+    if (res.ok) {{
+      trackingStatuses = await res.json();
+      serverTrackingStatuses = true;
+    }}
   }} catch (e) {{}}
   try {{
     const res = await fetch('fpflags.json', {{cache: 'no-store'}});
@@ -859,7 +899,18 @@ async function initRatings() {{
   }} else {{
     ratings = local;
   }}
+  if (serverTrackingStatuses) {{
+    for (const [id, status] of Object.entries(localTracking)) {{
+      if (!(id in trackingStatuses)) {{
+        trackingStatuses[id] = status;
+        postTrackingStatus(id, status);
+      }}
+    }}
+  }} else {{
+    trackingStatuses = localTracking;
+  }}
   applyRatings();
+  applyTrackingStatuses();
   applyFilters();
 }}
 
@@ -874,24 +925,42 @@ function applyRatings() {{
   }}
 }}
 
+function applyTrackingStatuses() {{
+  for (const tr of listingRows()) {{
+    const status = trackingStatuses[tr.dataset.id] || '';
+    tr.dataset.tracking = status;
+    tr.querySelector('.tracking-select').value = status;
+    tr.querySelector('td.tracking').dataset.sort = status;
+  }}
+}}
+
 function applyFilters() {{
-  let visible = 0, rated = 0;
+  let visible = 0, rated = 0, tracked = 0, sold = 0;
+  document.body.classList.toggle('hide-sold', hideSold.checked);
   for (const tr of listingRows()) {{
     const s = ratings[tr.dataset.id];
+    const trackingStatus = trackingStatuses[tr.dataset.id] || '';
     if (s !== undefined) rated++;
+    if (trackingStatus) tracked++;
+    const isSold = trackingStatus === 'sold'
+      || (tr.dataset.marketGone === '1' && trackingStatus !== 'bought');
+    if (isSold) sold++;
     const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
-      || (hideUO.checked && tr.dataset.status === 'negotiations');
+      || (hideUO.checked && tr.dataset.status === 'negotiations')
+      || (hideSold.checked && isSold);
     tr.style.display = hide ? 'none' : '';
     const next = tr.nextElementSibling;
     if (next && next.classList.contains('desc-row')) next.style.display = hide ? 'none' : '';
     if (!hide) visible++;
   }}
-  document.getElementById('counts').textContent = `${{visible}} shown · ${{rated}} rated`;
+  document.getElementById('counts').textContent =
+    `${{visible}} shown · ${{rated}} rated · ${{tracked}} tracked · ${{sold}} sold`;
 }}
 
 hideRated.addEventListener('change', applyFilters);
 hideNo.addEventListener('change', applyFilters);
 hideUO.addEventListener('change', applyFilters);
+hideSold.addEventListener('change', applyFilters);
 
 document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click', () => {{
   document.querySelectorAll('.desc-row').forEach(r => r.remove());
@@ -913,6 +982,12 @@ function rate(tr, s) {{
   const id = tr.dataset.id;
   saveRating(id, ratings[id] === s ? null : s);
   applyRatings(); applyFilters();
+}}
+
+function track(tr, status) {{
+  saveTrackingStatus(tr.dataset.id, status);
+  applyTrackingStatuses();
+  applyFilters();
 }}
 
 function toggleFold(tr) {{
@@ -948,7 +1023,7 @@ function toggleFold(tr) {{
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
-  cell.colSpan = 13;
+  cell.colSpan = 14;
   const fold = document.createElement('div');
   fold.className = 'fold';
   const descDiv = document.createElement('div');
@@ -1074,10 +1149,17 @@ tbody.addEventListener('click', e => {{
   if (btn) {{ rate(btn.closest('tr'), +btn.dataset.s); return; }}
   const tr = e.target.closest('tr');
   if (!tr || tr.classList.contains('desc-row')) return;
+  if (e.target.closest('.tracking-select')) return;
   select(tr);
   if (e.target.closest('td.photo')) {{ openGrid(tr); return; }}
   if (e.target.closest('a')) return;
   toggleFold(tr);
+}});
+
+tbody.addEventListener('change', e => {{
+  const selector = e.target.closest('.tracking-select');
+  if (!selector) return;
+  track(selector.closest('tr'), selector.value);
 }});
 
 // --- keyboard navigation ---
@@ -1149,7 +1231,7 @@ document.addEventListener('keydown', e => {{
   }}
 }});
 
-initRatings();
+initState();
 </script>
 </body>
 </html>
