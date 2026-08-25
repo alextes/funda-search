@@ -257,9 +257,11 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn('<input type="checkbox" id="hideSold" checked>', page)
         self.assertIn('<th></th><th class="addr">Address</th>', page)
         self.assertIn('<option value="call">call</option>', page)
-        self.assertIn('<option value="viewing_requested">req.</option>', page)
+        self.assertIn(
+            '<option value="viewing_requested">viewing requested</option>', page
+        )
         self.assertIn('<option value="bought">bought</option>', page)
-        self.assertIn("Status:</strong> call · req. = viewing requested", page)
+        self.assertIn("Status:</strong> call · viewing requested", page)
         self.assertIn('class="district" title="District">District</td>', page)
         self.assertIn("tracking-statuses.json", page)
         self.assertIn("analysis-state.json", page)

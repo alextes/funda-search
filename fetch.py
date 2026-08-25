@@ -755,9 +755,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
     <option value="call">call</option>
-    <option value="viewing_requested">req.</option>
-    <option value="viewing_planned">plan</option>
-    <option value="viewed">seen</option>
+    <option value="viewing_requested">viewing requested</option>
+    <option value="viewing_planned">viewing planned</option>
+    <option value="viewed">viewed</option>
     <option value="bid">bid</option>
     <option value="sold">sold</option>
     <option value="bought">bought</option>
@@ -838,7 +838,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .rate button:hover {{ border-color: #f7a100; color: #f7a100; }}
   .rate button.on {{ background: #f7a100; border-color: #f7a100; color: #fff; }}
   .rate button[data-s="0"].on {{ background: #999; border-color: #999; }}
-  .tracking-select {{ width: 4.8rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
+  .tracking-select {{ width: 10rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
                       padding: .3rem .4rem; color: #444; font: inherit; cursor: pointer; }}
   tr[data-tracking="sold"] .tracking-select {{ color: #777; }}
   tr[data-tracking="bought"] .tracking-select {{ border-color: #f7a100; color: #9b6200; }}
@@ -885,7 +885,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <h1>funda-search · {html.escape(config['location'])}</h1>
 <p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
-<p class="meta" id="statusLegend"><strong>Status:</strong> call · req. = viewing requested · plan = viewing planned · seen = viewed · bid = bid placed · sold · bought</p>
+<p class="meta" id="statusLegend"><strong>Status:</strong> call · viewing requested · viewing planned · viewed · bid · sold · bought</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
