@@ -258,11 +258,14 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn('<th></th><th class="addr">Address</th>', page)
         self.assertIn('<option value="call">call</option>', page)
         self.assertIn(
-            '<option value="viewing_requested">viewing requested</option>', page
+            '<option value="viewing_requested">requested</option>', page
         )
         self.assertIn('<option value="bought">bought</option>', page)
         self.assertIn("Status:</strong> call · viewing requested", page)
         self.assertIn('class="district" title="District">District</td>', page)
+        self.assertIn(
+            'class="neighbourhood" title="Neighbourhood">Neighbourhood</td>', page
+        )
         self.assertIn("tracking-statuses.json", page)
         self.assertIn("analysis-state.json", page)
         self.assertIn("request-analysis", page)

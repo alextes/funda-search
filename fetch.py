@@ -755,15 +755,15 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
     <option value="call">call</option>
-    <option value="viewing_requested">viewing requested</option>
-    <option value="viewing_planned">viewing planned</option>
+    <option value="viewing_requested">requested</option>
+    <option value="viewing_planned">planned</option>
     <option value="viewed">viewed</option>
     <option value="bid">bid</option>
     <option value="sold">sold</option>
     <option value="bought">bought</option>
   </select></td>
   {clipped_td(l.get('wijk'), 'district')}
-  {td(l.get('neighbourhood'))}
+  {clipped_td(l.get('neighbourhood'), 'neighbourhood')}
   <td data-sort="{l.get('price') or 0}">{price}</td>
   {td(l.get('living_area'), ' m²')}
   <td data-sort="{l.get('price_per_m2') or 0}">{ppm2}</td>
@@ -803,9 +803,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .addr a {{ color: #0071b3; text-decoration: none; display: block; overflow: hidden;
              text-overflow: ellipsis; white-space: nowrap; }}
   .addr a:hover {{ text-decoration: underline; }}
-  th.tracking, td.tracking {{ width: 4.8rem; max-width: 4.8rem; }}
+  th.tracking, td.tracking {{ width: 7rem; max-width: 7rem; }}
   th.district, td.district {{ width: 7.5rem; max-width: 7.5rem; overflow: hidden;
                               text-overflow: ellipsis; }}
+  th.neighbourhood, td.neighbourhood {{ width: 9rem; max-width: 9rem; overflow: hidden;
+                                        text-overflow: ellipsis; }}
   td.band span {{ display: block; width: fit-content; margin-top: .15rem; padding: .05rem .3rem;
                   border-radius: 3px; font-size: .68rem; color: #555; background: #eee; }}
   td.band.below span {{ color: #176b36; background: #e4f4e9; }}
@@ -838,7 +840,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .rate button:hover {{ border-color: #f7a100; color: #f7a100; }}
   .rate button.on {{ background: #f7a100; border-color: #f7a100; color: #fff; }}
   .rate button[data-s="0"].on {{ background: #999; border-color: #999; }}
-  .tracking-select {{ width: 10rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
+  .tracking-select {{ width: 7rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
                       padding: .3rem .4rem; color: #444; font: inherit; cursor: pointer; }}
   tr[data-tracking="sold"] .tracking-select {{ color: #777; }}
   tr[data-tracking="bought"] .tracking-select {{ border-color: #f7a100; color: #9b6200; }}
@@ -896,7 +898,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </div>
 <table id="t">
 <thead><tr>
-  <th></th><th class="addr">Address</th><th class="tracking">Status</th><th class="district">District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
+  <th></th><th class="addr">Address</th><th class="tracking">Status</th><th class="district">District</th><th class="neighbourhood">Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
   <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
