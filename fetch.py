@@ -42,6 +42,11 @@ PRICE_BANDS_SOURCE_URL = (
     "https://ckan.bertha.geodan.nl/nl/dataset/"
     "amsterdam-open-geodata-641-woningwaarde-2025"
 )
+DISTRICTS_FILE = ROOT / "reference" / "wijken.geojson"
+DISTRICTS_URL = (
+    "https://maps.amsterdam.nl/open_geodata/geojson_lnglat.php/"
+    "wijken.geojson?KAARTLAAG=INDELING_WIJK&THEMA=gebiedsindeling"
+)
 
 DETAIL_FETCH_DELAY_S = 1.0
 IMAGE_FETCH_DELAY_S = 0.15
@@ -187,6 +192,22 @@ def refresh_price_bands() -> None:
     print(f"wrote {PRICE_BANDS_FILE.relative_to(ROOT)} with {len(data['features'])} bands")
 
 
+def refresh_districts() -> None:
+    """Download and validate Amsterdam's public administrative-district GeoJSON."""
+    req = urllib.request.Request(DISTRICTS_URL, headers={"User-Agent": BROWSER_UA})
+    payload = urllib.request.urlopen(req, timeout=30).read().decode()
+    data = json.loads(payload)
+    if data.get("type") != "FeatureCollection" or not data.get("features"):
+        raise ValueError("district download is not a non-empty GeoJSON FeatureCollection")
+    if not all((feature.get("properties") or {}).get("Wijk") for feature in data["features"]):
+        raise ValueError("district download has features without Wijk names")
+    write_atomic(DISTRICTS_FILE, json.dumps(data, separators=(",", ":")))
+    print(
+        f"wrote {DISTRICTS_FILE.relative_to(ROOT)} "
+        f"with {len(data['features'])} districts"
+    )
+
+
 def _point_in_ring(lon: float, lat: float, ring: list) -> bool:
     """Ray-casting point-in-polygon test for one GeoJSON linear ring."""
     inside = False
@@ -266,6 +287,43 @@ def price_band_for_listing(listing: dict, bands: list[dict]) -> dict | None:
         if _point_in_geometry(lon, lat, band["geometry"]):
             return {key: value for key, value in band.items() if key != "geometry"}
     return None
+
+
+def load_districts() -> list[dict]:
+    if not DISTRICTS_FILE.exists():
+        return []
+    data = json.loads(DISTRICTS_FILE.read_text())
+    return [
+        {"name": feature["properties"]["Wijk"], "geometry": feature["geometry"]}
+        for feature in data.get("features", [])
+        if (feature.get("properties") or {}).get("Wijk") and feature.get("geometry")
+    ]
+
+
+def district_for_listing(listing: dict, districts: list[dict]) -> str | None:
+    lat, lon = listing.get("lat"), listing.get("lon")
+    if lat is None or lon is None:
+        return None
+    for district in districts:
+        if _point_in_geometry(lon, lat, district["geometry"]):
+            return district["name"]
+    return None
+
+
+def ensure_districts(listings: dict[str, dict]) -> int:
+    """Backfill missing districts from Amsterdam's administrative boundaries."""
+    districts = load_districts()
+    changed = 0
+    for listing in listings.values():
+        if listing.get("wijk"):
+            continue
+        district = district_for_listing(listing, districts)
+        if district:
+            listing["wijk"] = district
+            changed += 1
+    if changed:
+        print(f"district backfill: {changed} listings")
+    return changed
 
 
 def write_atomic(path: Path, text: str) -> None:
@@ -616,6 +674,12 @@ def render(config: dict, listings: dict[str, dict]) -> None:
             return "<td>–</td>"
         return f"<td>{html.escape(str(value))}{suffix}</td>"
 
+    def clipped_td(value, class_name: str) -> str:
+        if value is None or value == "":
+            return f'<td class="{class_name}">–</td>'
+        escaped = html.escape(str(value))
+        return f'<td class="{class_name}" title="{escaped}">{escaped}</td>'
+
     def format_euros(value: int) -> str:
         return f"€ {value:,}".replace(",", ".")
 
@@ -687,17 +751,17 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         body_rows.append(
             f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}">
   <td class="photo">{photo}</td>
-  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
-  <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}">
+  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
+  <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
-    <option value="viewing_requested">viewing requested</option>
-    <option value="viewing_planned">viewing planned</option>
-    <option value="viewed">viewed</option>
+    <option value="viewing_requested">req.</option>
+    <option value="viewing_planned">plan</option>
+    <option value="viewed">seen</option>
     <option value="bid">bid</option>
     <option value="sold">sold</option>
-    <option value="bought">bought 🎉</option>
+    <option value="bought">bought</option>
   </select></td>
-  {td(l.get('wijk'))}
+  {clipped_td(l.get('wijk'), 'district')}
   {td(l.get('neighbourhood'))}
   <td data-sort="{l.get('price') or 0}">{price}</td>
   {td(l.get('living_area'), ' m²')}
@@ -725,16 +789,22 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <title>funda-search · {html.escape(config['location'])}</title>
 <style>
   :root {{ font-family: -apple-system, system-ui, sans-serif; }}
-  body {{ margin: 2rem; color: #1a1a1a; }}
+  body {{ margin: 1.25rem; color: #1a1a1a; }}
   h1 {{ font-size: 1.3rem; }} .meta {{ color: #666; font-size: .85rem; }}
   .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; gap: 1.2rem; align-items: center; color: #333; }}
   .controls label {{ cursor: pointer; user-select: none; }}
-  table {{ border-collapse: collapse; width: 100%; font-size: .85rem; }}
-  th, td {{ text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
+  table {{ border-collapse: collapse; width: 100%; font-size: .82rem; }}
+  th, td {{ text-align: left; padding: .4rem .45rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
   th {{ cursor: pointer; user-select: none; position: sticky; top: 0; background: #fff; }}
   th:hover {{ color: #f7a100; }}
   .photo img {{ width: 72px; height: 48px; object-fit: cover; border-radius: 4px; display: block; }}
-  .addr a {{ color: #0071b3; text-decoration: none; }} .addr a:hover {{ text-decoration: underline; }}
+  th.addr, td.addr {{ width: 10rem; max-width: 10rem; }}
+  .addr a {{ color: #0071b3; text-decoration: none; display: block; overflow: hidden;
+             text-overflow: ellipsis; white-space: nowrap; }}
+  .addr a:hover {{ text-decoration: underline; }}
+  th.tracking, td.tracking {{ width: 4.8rem; max-width: 4.8rem; }}
+  th.district, td.district {{ width: 7.5rem; max-width: 7.5rem; overflow: hidden;
+                              text-overflow: ellipsis; }}
   td.band span {{ display: block; width: fit-content; margin-top: .15rem; padding: .05rem .3rem;
                   border-radius: 3px; font-size: .68rem; color: #555; background: #eee; }}
   td.band.below span {{ color: #176b36; background: #e4f4e9; }}
@@ -749,7 +819,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .rate button:hover {{ border-color: #f7a100; color: #f7a100; }}
   .rate button.on {{ background: #f7a100; border-color: #f7a100; color: #fff; }}
   .rate button[data-s="0"].on {{ background: #999; border-color: #999; }}
-  .tracking-select {{ max-width: 10.5rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
+  .tracking-select {{ width: 4.8rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
                       padding: .3rem .4rem; color: #444; font: inherit; cursor: pointer; }}
   tr[data-tracking="sold"] .tracking-select {{ color: #777; }}
   tr[data-tracking="bought"] .tracking-select {{ border-color: #f7a100; color: #9b6200; }}
@@ -796,6 +866,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <h1>funda-search · {html.escape(config['location'])}</h1>
 <p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
+<p class="meta" id="statusLegend"><strong>Status:</strong> req. = viewing requested · plan = viewing planned · seen = viewed · bid = bid placed · sold · bought</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label><input type="checkbox" id="hideRated"> hide rated</label>
@@ -806,8 +877,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </div>
 <table id="t">
 <thead><tr>
-  <th></th><th>Address</th><th>Status</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">Science Park 303</th><th>Listed</th><th data-defdesc="1">Score</th>
+  <th></th><th class="addr">Address</th><th class="tracking">Status</th><th class="district">District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
+  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(body_rows)}
@@ -1287,6 +1358,11 @@ def main() -> None:
         action="store_true",
         help="download Amsterdam's 2025 transaction-price bands, then re-render",
     )
+    parser.add_argument(
+        "--refresh-districts",
+        action="store_true",
+        help="download Amsterdam's administrative districts, backfill, then re-render",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -1295,12 +1371,15 @@ def main() -> None:
 
     if args.refresh_price_bands:
         refresh_price_bands()
+    if args.refresh_districts:
+        refresh_districts()
 
     if (
         args.backfill_floorplans
         or args.backfill_photos
         or args.refresh_status
         or args.refresh_price_bands
+        or args.refresh_districts
     ):
         if args.backfill_floorplans:
             backfill_floorplans(listings)
@@ -1315,7 +1394,8 @@ def main() -> None:
         _, new = fetch(config, listings)
         histories_changed = histories_changed or bool(new)
 
-    if histories_changed:
+    districts_changed = ensure_districts(listings)
+    if histories_changed or districts_changed:
         save_listings(listings)
 
     render(config, listings)

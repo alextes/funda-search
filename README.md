@@ -20,6 +20,12 @@ The overview also spatially joins listing coordinates against Amsterdam's **Woni
 .venv/bin/python fetch.py --refresh-price-bands
 ```
 
+Districts are spatially joined from Amsterdam's official **Wijken** boundaries, so discovery does not depend on Funda's search API supplying a district field. The bundled source file is `reference/wijken.geojson`; refresh it and backfill missing districts with:
+
+```bash
+.venv/bin/python fetch.py --refresh-districts
+```
+
 ## Usage
 
 ```bash

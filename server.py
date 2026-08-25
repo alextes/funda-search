@@ -118,7 +118,8 @@ def fetch_once() -> None:
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
     total, new = core.fetch(config, listings)
-    if new or histories_changed:
+    districts_changed = core.ensure_districts(listings)
+    if new or histories_changed or districts_changed:
         core.save_listings(listings)
     core.render(config, listings)
     state["last_fetch"] = datetime.now()
@@ -132,8 +133,9 @@ def status_refresh_once() -> None:
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
     changed = core.refresh_statuses(listings)
+    districts_changed = core.ensure_districts(listings)
     core.save_listings(listings)
-    if changed or histories_changed:
+    if changed or histories_changed or districts_changed:
         core.render(config, listings)
     state["last_status_refresh"] = datetime.now()
     log(f"status refresh done ({changed} changes)")

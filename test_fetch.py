@@ -248,18 +248,46 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("cell.colSpan = 15", page)
         self.assertIn('title="Straight-line distance to Dam Square">Dam</th>', page)
         self.assertIn(
-            'title="Straight-line distance to Science Park 303">Science Park 303</th>',
+            'title="Straight-line distance to Science Park 303">SP 303</th>',
             page,
         )
         self.assertIn("1.3 km", page)
         self.assertIn("2.6 km", page)
         self.assertIn('data-market-gone="1"', page)
         self.assertIn('<input type="checkbox" id="hideSold" checked>', page)
-        self.assertIn("<th></th><th>Address</th><th>Status</th>", page)
-        self.assertIn('<option value="viewing_requested">viewing requested</option>', page)
-        self.assertIn('<option value="bought">bought 🎉</option>', page)
+        self.assertIn('<th></th><th class="addr">Address</th>', page)
+        self.assertIn('<option value="viewing_requested">req.</option>', page)
+        self.assertIn('<option value="bought">bought</option>', page)
+        self.assertIn("req. = viewing requested", page)
+        self.assertIn('class="district" title="District">District</td>', page)
         self.assertIn("tracking-statuses.json", page)
         self.assertIn("trackingStatus === 'sold'", page)
+
+
+class DistrictTests(unittest.TestCase):
+    def test_cached_municipality_districts_load(self):
+        districts = fetch.load_districts()
+        self.assertGreater(len(districts), 100)
+        self.assertTrue(all(district["name"] for district in districts))
+        self.assertEqual(
+            fetch.district_for_listing(
+                {"lat": 52.34332, "lon": 4.891952}, districts
+            ),
+            "Scheldebuurt",
+        )
+
+    def test_missing_district_is_backfilled_without_overwriting_existing_value(self):
+        listings = {
+            "missing": {"lat": 52.2, "lon": 4.2, "wijk": None},
+            "existing": {"lat": 52.2, "lon": 4.2, "wijk": "Legacy district"},
+        }
+        districts = [{"name": "Official district", "geometry": SQUARE}]
+
+        with patch.object(fetch, "load_districts", return_value=districts):
+            self.assertEqual(fetch.ensure_districts(listings), 1)
+
+        self.assertEqual(listings["missing"]["wijk"], "Official district")
+        self.assertEqual(listings["existing"]["wijk"], "Legacy district")
 
 
 if __name__ == "__main__":
