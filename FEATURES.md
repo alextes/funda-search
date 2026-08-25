@@ -28,6 +28,7 @@
 - [x] Append-only asking-price and status history; legacy listings get one explicit snapshot event
 - [x] Amsterdam Woningwaardekaart 2025 transaction €/m² bands, spatially joined to listings with below/within/above comparison
 - [x] Amsterdam administrative districts spatially joined from municipal Wijken boundaries
+- [x] Requestable, sourced due-diligence snapshots in the detail pane: reviewed market range, external model estimate, VvE, erfpacht, flags, questions, and refresh queue
 - [ ] **Description scanning** — automatically check each description for the recurring criteria (to define: e.g. erfpacht/eigen grond, fundering, VvE health, balkon/buitenruimte, bouwjaar...) and show the verdicts as columns
 - [ ] **Better filtering** — filter the overview client-side (price range, wijk, min m²)
 - [ ] **Ratings beyond one browser** — localStorage is per-browser/origin; consider an export button or a tiny local server that writes ratings to `data/ratings.json`

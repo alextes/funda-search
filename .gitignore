@@ -3,5 +3,7 @@ __pycache__/
 .DS_Store
 data/ratings.json
 data/fp_flags.json
+data/listing_analyses.json
+data/analysis_requests.json
 data/.session-secret
 *.tmp

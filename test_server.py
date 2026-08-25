@@ -83,5 +83,100 @@ class TrackingStatusTests(unittest.TestCase):
                 thread.join(timeout=5)
 
 
+class ListingAnalysisTests(unittest.TestCase):
+    def analysis(self):
+        return {
+            "market": {
+                "estimate_low": 700000,
+                "estimate_high": 750000,
+                "summary": "Likely deliberately under-asked.",
+            },
+            "vve": {"risk": "medium", "monthly_eur": 250, "summary": "Check MJOP."},
+            "erfpacht": {
+                "risk": "low",
+                "headline": "Bought out perpetually",
+                "summary": "No regular canon.",
+            },
+            "flags": ["Non-owner-occupancy clause."],
+            "questions": ["Any planned special assessment?"],
+            "sources": [{"label": "Funda", "url": "https://example.com/listing"}],
+        }
+
+    def test_request_and_completed_analysis_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            server, "ANALYSES_FILE", Path(directory) / "listing_analyses.json"
+        ), patch.object(
+            server, "ANALYSIS_REQUESTS_FILE", Path(directory) / "analysis_requests.json"
+        ):
+            request = server.request_listing_analysis("8114731")
+            self.assertIn("requested_at", request)
+            self.assertEqual(server.load_analysis_requests(), {"8114731": request})
+
+            server.save_listing_analysis("8114731", self.analysis())
+            saved = server.load_analyses()["8114731"]
+            self.assertEqual(saved["market"]["estimate_low"], 700000)
+            self.assertIn("updated_at", saved)
+            self.assertEqual(server.load_analysis_requests(), {})
+
+    def test_analysis_rejects_invalid_risk(self):
+        analysis = self.analysis()
+        analysis["vve"]["risk"] = "perfect"
+        with self.assertRaisesRegex(ValueError, "analysis.vve.risk is invalid"):
+            server.validate_listing_analysis(analysis)
+
+    def test_analysis_rejects_unsafe_source_url(self):
+        analysis = self.analysis()
+        analysis["sources"][0]["url"] = "javascript:alert(1)"
+        with self.assertRaisesRegex(ValueError, "URLs must use HTTP"):
+            server.validate_listing_analysis(analysis)
+
+    def test_analysis_http_api_queues_and_completes(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            server, "ANALYSES_FILE", Path(directory) / "listing_analyses.json"
+        ), patch.object(
+            server, "ANALYSIS_REQUESTS_FILE", Path(directory) / "analysis_requests.json"
+        ), patch.object(server, "PASSWORD", None):
+            httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            connection = http.client.HTTPConnection(*httpd.server_address, timeout=5)
+            try:
+                connection.request(
+                    "POST",
+                    "/request-analysis",
+                    body=json.dumps({"id": "8114731"}),
+                    headers={"Content-Type": "application/json"},
+                )
+                response = connection.getresponse()
+                response.read()
+                self.assertEqual(response.status, 202)
+
+                connection.request("GET", "/analysis-state.json")
+                response = connection.getresponse()
+                state = json.loads(response.read())
+                self.assertIn("8114731", state["requests"])
+
+                connection.request(
+                    "POST",
+                    "/analysis",
+                    body=json.dumps({"id": "8114731", "analysis": self.analysis()}),
+                    headers={"Content-Type": "application/json"},
+                )
+                response = connection.getresponse()
+                response.read()
+                self.assertEqual(response.status, 204)
+
+                connection.request("GET", "/analysis-state.json")
+                response = connection.getresponse()
+                state = json.loads(response.read())
+                self.assertIn("8114731", state["analyses"])
+                self.assertNotIn("8114731", state["requests"])
+            finally:
+                connection.close()
+                httpd.shutdown()
+                httpd.server_close()
+                thread.join(timeout=5)
+
+
 if __name__ == "__main__":
     unittest.main()

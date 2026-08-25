@@ -262,6 +262,11 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("Status:</strong> call · req. = viewing requested", page)
         self.assertIn('class="district" title="District">District</td>', page)
         self.assertIn("tracking-statuses.json", page)
+        self.assertIn("analysis-state.json", page)
+        self.assertIn("request-analysis", page)
+        self.assertIn("Due-diligence snapshot", page)
+        self.assertIn("Market indication", page)
+        self.assertIn("Questions before bidding", page)
         self.assertIn("trackingStatus === 'sold'", page)
 
 

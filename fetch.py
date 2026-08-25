@@ -813,6 +813,24 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .history {{ margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid #ddd; color: #555; }}
   .history strong {{ display: block; color: #222; margin-bottom: .3rem; }}
   .history .event {{ font-size: .8rem; line-height: 1.5; }}
+  .analysis {{ margin-bottom: 1rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; background: #fff; }}
+  .analysis-head {{ display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .7rem; }}
+  .analysis-head strong {{ color: #222; }}
+  .analysis-head span, .analysis-meta {{ color: #777; font-size: .75rem; }}
+  .analysis-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem; }}
+  .analysis-card {{ border: 1px solid #e5e5e5; border-radius: 5px; padding: .55rem; font-size: .8rem; line-height: 1.4; }}
+  .analysis-card h4 {{ margin: 0 0 .3rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: #666; }}
+  .analysis-value {{ font-weight: 600; color: #222; margin-bottom: .25rem; }}
+  .risk {{ display: inline-block; margin-left: .3rem; padding: .05rem .3rem; border-radius: 3px; font-size: .68rem; font-weight: 600; }}
+  .risk-low {{ background: #def1e4; color: #25633a; }}
+  .risk-medium {{ background: #fff0c9; color: #795900; }}
+  .risk-high {{ background: #f8dddd; color: #8b2525; }}
+  .risk-unknown {{ background: #eee; color: #666; }}
+  .analysis-list {{ margin: .65rem 0 0; padding-left: 1.2rem; font-size: .8rem; line-height: 1.4; }}
+  .analysis-sources {{ margin-top: .6rem; font-size: .75rem; }}
+  .analysis-sources a {{ margin-right: .7rem; }}
+  .analysis button {{ border: 1px solid #0071b3; background: #fff; color: #0071b3; border-radius: 4px; padding: .3rem .55rem; cursor: pointer; }}
+  .analysis button:disabled {{ border-color: #bbb; color: #888; cursor: default; }}
   tr {{ cursor: pointer; }}
   .rate {{ display: flex; gap: .2rem; }}
   .rate button {{ width: 1.7rem; height: 1.7rem; border: 1px solid #ccc; background: #fff; border-radius: 4px;
@@ -914,6 +932,8 @@ let ratings = {{}};
 let serverRatings = false;
 let trackingStatuses = {{}};
 let serverTrackingStatuses = false;
+let listingAnalyses = {{}};
+let analysisRequests = {{}};
 
 function postRate(id, score) {{
   fetch('rate', {{
@@ -978,6 +998,14 @@ async function initState() {{
     if (res.ok) {{
       trackingStatuses = await res.json();
       serverTrackingStatuses = true;
+    }}
+  }} catch (e) {{}}
+  try {{
+    const res = await fetch('analysis-state.json', {{cache: 'no-store'}});
+    if (res.ok) {{
+      const state = await res.json();
+      listingAnalyses = state.analyses || {{}};
+      analysisRequests = state.requests || {{}};
     }}
   }} catch (e) {{}}
   try {{
@@ -1084,6 +1112,166 @@ function track(tr, status) {{
   applyFilters();
 }}
 
+function euro(value) {{
+  return value === null || value === undefined ? ''
+    : `€ ${{Number(value).toLocaleString('nl-NL')}}`;
+}}
+
+function estimateText(estimate) {{
+  if (!estimate) return 'Not available';
+  if (estimate.value !== null && estimate.value !== undefined) return euro(estimate.value);
+  if (estimate.low !== null && estimate.low !== undefined
+      && estimate.high !== null && estimate.high !== undefined) {{
+    return `${{euro(estimate.low)}}–${{Number(estimate.high).toLocaleString('nl-NL')}}`;
+  }}
+  return 'Not available';
+}}
+
+async function requestAnalysis(id, panel) {{
+  const button = panel.querySelector('button');
+  button.disabled = true;
+  button.textContent = 'Requesting…';
+  try {{
+    const res = await fetch('request-analysis', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{id}}),
+    }});
+    if (!res.ok) throw new Error(await res.text());
+    analysisRequests[id] = await res.json();
+    panel.replaceWith(buildAnalysisPanel(id));
+  }} catch (e) {{
+    button.disabled = false;
+    button.textContent = 'Request analysis';
+    button.title = `Request failed: ${{e.message}}`;
+  }}
+}}
+
+function analysisCard(title, section, value) {{
+  const card = document.createElement('div');
+  card.className = 'analysis-card';
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  if (section?.risk) {{
+    const risk = document.createElement('span');
+    risk.className = `risk risk-${{section.risk}}`;
+    risk.textContent = section.risk;
+    heading.append(risk);
+  }}
+  const primary = document.createElement('div');
+  primary.className = 'analysis-value';
+  primary.textContent = value || 'Not established';
+  const summary = document.createElement('div');
+  summary.textContent = section?.summary || '';
+  card.append(heading, primary, summary);
+  return card;
+}}
+
+function buildAnalysisPanel(id) {{
+  const panel = document.createElement('section');
+  panel.className = 'analysis';
+  panel.dataset.listingId = id;
+  const analysis = listingAnalyses[id];
+  const pending = analysisRequests[id];
+  const head = document.createElement('div');
+  head.className = 'analysis-head';
+  const title = document.createElement('strong');
+  title.textContent = 'Due-diligence snapshot';
+  head.append(title);
+
+  if (!analysis) {{
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.disabled = Boolean(pending);
+    button.textContent = pending ? 'Analysis requested' : 'Request analysis';
+    if (!pending) button.addEventListener('click', () => requestAnalysis(id, panel));
+    head.append(button);
+    const note = document.createElement('div');
+    note.className = 'analysis-meta';
+    note.textContent = pending
+      ? `Queued ${{(pending.requested_at || '').slice(0, 10)}}.`
+      : 'Request a sourced review of market value, VvE, erfpacht and listing risks.';
+    panel.append(head, note);
+    return panel;
+  }}
+
+  const status = document.createElement('span');
+  status.textContent = pending
+    ? 'refresh requested'
+    : `updated ${{(analysis.updated_at || '').slice(0, 10)}}`;
+  head.append(status);
+  const grid = document.createElement('div');
+  grid.className = 'analysis-grid';
+  const market = analysis.market || {{}};
+  const range = market.estimate_low !== undefined && market.estimate_high !== undefined
+    ? `${{euro(market.estimate_low)}}–${{Number(market.estimate_high).toLocaleString('nl-NL')}}`
+    : 'Range not established';
+  const marketCard = analysisCard('Market indication', market, range);
+  if (market.external) {{
+    const external = document.createElement('div');
+    external.className = 'analysis-meta';
+    const label = `${{market.external.label || 'External model'}}: ${{estimateText(market.external)}}`;
+    if (market.external.url) {{
+      const link = document.createElement('a');
+      link.href = market.external.url;
+      link.target = '_blank';
+      link.textContent = label;
+      external.append(link);
+    }} else {{
+      external.textContent = label;
+    }}
+    if (market.external.caveat) external.title = market.external.caveat;
+    marketCard.append(external);
+  }}
+  const vve = analysis.vve || {{}};
+  const vveValue = vve.monthly_eur === null || vve.monthly_eur === undefined
+    ? 'Contribution unknown' : `${{euro(vve.monthly_eur)}} / month`;
+  const erfpacht = analysis.erfpacht || {{}};
+  grid.append(
+    marketCard,
+    analysisCard('VvE', vve, vveValue),
+    analysisCard('Erfpacht', erfpacht, erfpacht.headline || 'Not established'),
+  );
+  panel.append(head, grid);
+
+  for (const [label, items] of [['What jumps out', analysis.flags], ['Questions before bidding', analysis.questions]]) {{
+    if (!items?.length) continue;
+    const list = document.createElement('ul');
+    list.className = 'analysis-list';
+    const first = document.createElement('li');
+    const strong = document.createElement('strong');
+    strong.textContent = label;
+    first.append(strong);
+    list.append(first);
+    for (const item of items) {{
+      const li = document.createElement('li');
+      li.textContent = item;
+      list.append(li);
+    }}
+    panel.append(list);
+  }}
+  if (analysis.sources?.length) {{
+    const sources = document.createElement('div');
+    sources.className = 'analysis-sources';
+    sources.append('Sources: ');
+    for (const source of analysis.sources) {{
+      const link = document.createElement('a');
+      link.href = source.url;
+      link.target = '_blank';
+      link.textContent = source.label;
+      sources.append(link);
+    }}
+    panel.append(sources);
+  }}
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.disabled = Boolean(pending);
+  button.textContent = pending ? 'Refresh requested' : 'Request refresh';
+  if (!pending) button.addEventListener('click', () => requestAnalysis(id, panel));
+  panel.append(button);
+  return panel;
+}}
+
 function toggleFold(tr) {{
   const next = tr.nextElementSibling;
   if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
@@ -1149,7 +1337,7 @@ function toggleFold(tr) {{
   }}
   const descriptionText = document.createElement('div');
   descriptionText.textContent = tr.dataset.desc || '';
-  descDiv.append(historyDiv, descriptionText);
+  descDiv.append(buildAnalysisPanel(id), historyDiv, descriptionText);
   const fpDiv = document.createElement('div');
   fpDiv.className = 'fold-right';
   fpDiv.innerHTML = photosLink + mapHtml + fpHtml;

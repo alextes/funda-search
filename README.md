@@ -14,6 +14,12 @@ The mobile API gives us everything: price, floor area, rooms, energy label, wijk
 
 Opinion scores and house-hunt progress are independent. A listing can keep its 0–3 score while its personal status moves through call, viewing requested, viewing planned, viewed, bid, sold, or bought. Personal statuses are shared across signed-in browsers and stored in `data/tracking_statuses.json`. Sold and otherwise unavailable listings remain in the generated overview but are hidden by default; uncheck **hide sold** to revisit them.
 
+Each listing detail pane also supports a requestable due-diligence snapshot. A
+completed snapshot keeps the reviewed market range and external model estimate
+separate, then shows VvE risk, erfpacht risk, listing-specific flags, questions,
+sources, and the review date. See [ANALYSIS.md](ANALYSIS.md) for the review method,
+schema, and request workflow.
+
 The overview also spatially joins listing coordinates against Amsterdam's **Woningwaardekaart 2025**. Its bands are based on interpolated Kadaster transaction €/m² and are deliberately displayed as a historic range, not a current valuation. The bundled source file is `reference/woningwaarde-2025.geojson`; refresh it from the municipality with:
 
 ```bash

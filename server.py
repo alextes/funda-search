@@ -40,6 +40,8 @@ TRACKING_STATUSES_FILE = core.ROOT / "data" / "tracking_statuses.json"
 TRACKING_STATUS_VALUES = frozenset(
     {"call", "viewing_requested", "viewing_planned", "viewed", "bid", "sold", "bought"}
 )
+ANALYSES_FILE = core.ROOT / "data" / "listing_analyses.json"
+ANALYSIS_REQUESTS_FILE = core.ROOT / "data" / "analysis_requests.json"
 # false-positive floor plan flags (id -> [image urls]): hides detector misfires
 # in the UI and doubles as a labeled mistake-set for tuning the detector
 FP_FLAGS_FILE = core.ROOT / "data" / "fp_flags.json"
@@ -48,6 +50,7 @@ SECRET_FILE = core.ROOT / "data" / ".session-secret"
 state = {"last_fetch": None, "fetch_count": 0, "last_error": None, "last_status_refresh": None}
 ratings_lock = threading.Lock()
 tracking_statuses_lock = threading.Lock()
+analyses_lock = threading.Lock()
 fp_flags_lock = threading.Lock()
 
 LOGIN_PAGE = """<!doctype html>
@@ -105,6 +108,83 @@ def save_tracking_status(listing_id: str, tracking_status: str | None) -> None:
             statuses[listing_id] = tracking_status
         TRACKING_STATUSES_FILE.parent.mkdir(exist_ok=True)
         core.write_atomic(TRACKING_STATUSES_FILE, json.dumps(statuses, indent=1))
+
+
+def load_analyses() -> dict:
+    if ANALYSES_FILE.exists():
+        return json.loads(ANALYSES_FILE.read_text())
+    return {}
+
+
+def load_analysis_requests() -> dict:
+    if ANALYSIS_REQUESTS_FILE.exists():
+        return json.loads(ANALYSIS_REQUESTS_FILE.read_text())
+    return {}
+
+
+def request_listing_analysis(listing_id: str) -> dict:
+    if not listing_id:
+        raise ValueError("listing id is required")
+    request = {"requested_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+    with analyses_lock:
+        requests = load_analysis_requests()
+        requests[listing_id] = request
+        ANALYSIS_REQUESTS_FILE.parent.mkdir(exist_ok=True)
+        core.write_atomic(ANALYSIS_REQUESTS_FILE, json.dumps(requests, indent=1))
+    return request
+
+
+def validate_listing_analysis(analysis: object) -> dict:
+    if not isinstance(analysis, dict):
+        raise ValueError("analysis must be an object")
+    for section in ("market", "vve", "erfpacht"):
+        if not isinstance(analysis.get(section), dict):
+            raise ValueError(f"analysis.{section} must be an object")
+    for field in ("flags", "questions", "sources"):
+        if not isinstance(analysis.get(field), list):
+            raise ValueError(f"analysis.{field} must be a list")
+    for field in ("flags", "questions"):
+        if not all(isinstance(item, str) for item in analysis[field]):
+            raise ValueError(f"analysis.{field} entries must be strings")
+    for source in analysis["sources"]:
+        if not isinstance(source, dict) or not isinstance(source.get("label"), str):
+            raise ValueError("analysis.sources entries need a label and URL")
+        if not isinstance(source.get("url"), str) or not source["url"].startswith(
+            ("https://", "http://")
+        ):
+            raise ValueError("analysis.sources URLs must use HTTP(S)")
+    risk_values = {"low", "medium", "high", "unknown"}
+    for section in ("vve", "erfpacht"):
+        if analysis[section].get("risk") not in risk_values:
+            raise ValueError(f"analysis.{section}.risk is invalid")
+    external = analysis["market"].get("external")
+    if external is not None:
+        if not isinstance(external, dict):
+            raise ValueError("analysis.market.external must be an object")
+        url = external.get("url")
+        if url is not None and (
+            not isinstance(url, str) or not url.startswith(("https://", "http://"))
+        ):
+            raise ValueError("analysis.market.external URL must use HTTP(S)")
+    return analysis
+
+
+def save_listing_analysis(listing_id: str, analysis: object) -> None:
+    if not listing_id:
+        raise ValueError("listing id is required")
+    validated = validate_listing_analysis(analysis)
+    saved = dict(validated)
+    saved["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    with analyses_lock:
+        analyses = load_analyses()
+        analyses[listing_id] = saved
+        requests = load_analysis_requests()
+        requests.pop(listing_id, None)
+        ANALYSES_FILE.parent.mkdir(exist_ok=True)
+        core.write_atomic(ANALYSES_FILE, json.dumps(analyses, indent=1, ensure_ascii=False))
+        core.write_atomic(
+            ANALYSIS_REQUESTS_FILE, json.dumps(requests, indent=1, ensure_ascii=False)
+        )
 
 
 def load_fp_flags() -> dict:
@@ -193,6 +273,12 @@ class Handler(BaseHTTPRequestHandler):
             with tracking_statuses_lock:
                 body = json.dumps(load_tracking_statuses()).encode()
             self.respond(200, "application/json; charset=utf-8", body)
+        elif path == "/analysis-state.json":
+            with analyses_lock:
+                body = json.dumps(
+                    {"analyses": load_analyses(), "requests": load_analysis_requests()}
+                ).encode()
+            self.respond(200, "application/json; charset=utf-8", body)
         elif path == "/fpflags.json":
             with fp_flags_lock:
                 body = json.dumps(load_fp_flags()).encode()
@@ -253,6 +339,22 @@ class Handler(BaseHTTPRequestHandler):
                 if tracking_status == "":
                     tracking_status = None
                 save_tracking_status(listing_id, tracking_status)
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError) as e:
+                self.respond(400, "text/plain", f"bad request: {e}".encode())
+                return
+            self.respond(204, "text/plain", b"")
+        elif path == "/request-analysis":
+            try:
+                data = json.loads(body)
+                request = request_listing_analysis(str(data["id"]))
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError) as e:
+                self.respond(400, "text/plain", f"bad request: {e}".encode())
+                return
+            self.respond(202, "application/json; charset=utf-8", json.dumps(request).encode())
+        elif path == "/analysis":
+            try:
+                data = json.loads(body)
+                save_listing_analysis(str(data["id"]), data["analysis"])
             except (TypeError, ValueError, KeyError, json.JSONDecodeError) as e:
                 self.respond(400, "text/plain", f"bad request: {e}".encode())
                 return
