@@ -122,10 +122,28 @@ def load_analysis_requests() -> dict:
     return {}
 
 
+def analysis_request_context(listing_id: str) -> dict:
+    """Collect live source links needed by a due-diligence reviewer."""
+    listing = core.load_listings().get(listing_id)
+    if not listing:
+        return {}
+    context = {
+        "listing_url": listing.get("url"),
+        "brochure_url": listing.get("brochure_url"),
+    }
+    if context["listing_url"] and not context["brochure_url"]:
+        try:
+            context["brochure_url"] = core.fetch_brochure_url(context["listing_url"])
+        except Exception as error:
+            log(f"brochure lookup failed for analysis {listing_id}: {error}")
+    return {key: value for key, value in context.items() if value}
+
+
 def request_listing_analysis(listing_id: str) -> dict:
     if not listing_id:
         raise ValueError("listing id is required")
     request = {"requested_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+    request.update(analysis_request_context(listing_id))
     with analyses_lock:
         requests = load_analysis_requests()
         requests[listing_id] = request
@@ -177,8 +195,11 @@ def save_listing_analysis(listing_id: str, analysis: object) -> None:
     saved["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
     with analyses_lock:
         analyses = load_analyses()
-        analyses[listing_id] = saved
         requests = load_analysis_requests()
+        request = requests.get(listing_id, {})
+        if request.get("brochure_url") and not saved.get("brochure_url"):
+            saved["brochure_url"] = request["brochure_url"]
+        analyses[listing_id] = saved
         requests.pop(listing_id, None)
         ANALYSES_FILE.parent.mkdir(exist_ok=True)
         core.write_atomic(ANALYSES_FILE, json.dumps(analyses, indent=1, ensure_ascii=False))

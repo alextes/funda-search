@@ -65,6 +65,9 @@ FLOORPLAN_GRAY_MIN = 0.5
 FLOORPLAN_DARK_MIN = 0.008
 FUNDA_SEARCH_URL = "https://www.funda.nl/zoeken/koop"
 FUNDA_LISTING_PATH = re.compile(r"^/detail/koop/.+/(\d+)/?$")
+FUNDA_BROCHURE_URL = re.compile(
+    r'https://cloud\.funda\.nl/[^"\'<>\s]+\.pdf(?:\?[^"\'<>\s]*)?', re.IGNORECASE
+)
 WEBSITE_PAGE_SIZE = 15
 WEBSITE_MAX_PAGES = 20
 
@@ -391,6 +394,45 @@ def parse_listing_urls(page: str) -> list[str]:
     return parser.urls
 
 
+def parse_brochure_url(page: str) -> str | None:
+    """Extract the direct Funda-hosted brochure PDF from a detail page."""
+    match = FUNDA_BROCHURE_URL.search(page)
+    if not match:
+        return None
+    url = html.unescape(match.group(0))
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != "cloud.funda.nl":
+        return None
+    return url
+
+
+def fetch_brochure_url(listing_url: str, *, session=None) -> str | None:
+    """Fetch a public Funda detail page and return its brochure PDF URL."""
+    client = session or curl_requests.Session()
+    response = client.get(
+        listing_url,
+        impersonate="chrome124",
+        timeout=30,
+        allow_redirects=True,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f"brochure lookup failed with status {response.status_code}")
+    if "Je bent bijna op de pagina" in response.text:
+        raise RuntimeError("brochure lookup returned a bot challenge")
+    return parse_brochure_url(response.text)
+
+
+def enrich_brochure(record: dict, *, session=None) -> None:
+    """Best-effort brochure discovery that never drops an otherwise valid listing."""
+    if record.get("brochure_url") or not record.get("url"):
+        return
+    try:
+        record["brochure_url"] = fetch_brochure_url(record["url"], session=session)
+    except Exception as error:
+        label = record.get("title") or record["url"]
+        print(f"  brochure lookup failed for {label}: {error}", file=sys.stderr)
+
+
 def search_website(
     config: dict,
     listings: dict[str, dict],
@@ -523,12 +565,13 @@ def build_record(item, detail, config: dict) -> dict:
 
 
 def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
+    website_client = curl_requests.Session()
     with Funda() as client:
         try:
             items = search_pages(client, config)
         except SearchError as error:
             print(f"search API unavailable ({error}); using website fallback")
-            urls = search_website(config, listings)
+            urls = search_website(config, listings, session=website_client)
             known_ids = {
                 listing_id
                 for listing in listings.values()
@@ -545,6 +588,7 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
                         continue
                     record = build_record(detail, detail, config)
                     record["url"] = url
+                    enrich_brochure(record, session=website_client)
                     listings[key] = record
                     print(f"  [{n}/{len(new_urls)}] {detail.title}")
                 except Exception as detail_error:
@@ -562,7 +606,9 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
             key = str(item.global_id or item.id)
             try:
                 detail = client.listing(item.global_id or item.id)
-                listings[key] = build_record(item, detail, config)
+                record = build_record(item, detail, config)
+                enrich_brochure(record, session=website_client)
+                listings[key] = record
                 print(f"  [{n}/{len(new_items)}] {item.title}")
             except Exception as e:
                 print(f"  [{n}/{len(new_items)}] {item.title} FAILED: {e}", file=sys.stderr)
@@ -749,7 +795,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}">
+            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
@@ -1141,6 +1187,10 @@ async function requestAnalysis(id, panel) {{
     }});
     if (!res.ok) throw new Error(await res.text());
     analysisRequests[id] = await res.json();
+    if (analysisRequests[id].brochure_url) {{
+      const listingRow = listingRows().find(row => row.dataset.id === id);
+      if (listingRow) listingRow.dataset.brochure = analysisRequests[id].brochure_url;
+    }}
     panel.replaceWith(buildAnalysisPanel(id));
   }} catch (e) {{
     button.disabled = false;
@@ -1169,12 +1219,27 @@ function analysisCard(title, section, value) {{
   return card;
 }}
 
+function brochureSource(url) {{
+  if (!url) return null;
+  const source = document.createElement('div');
+  source.className = 'analysis-sources';
+  source.append('Brochure: ');
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.textContent = 'download PDF';
+  source.append(link);
+  return source;
+}}
+
 function buildAnalysisPanel(id) {{
   const panel = document.createElement('section');
   panel.className = 'analysis';
   panel.dataset.listingId = id;
   const analysis = listingAnalyses[id];
   const pending = analysisRequests[id];
+  const row = listingRows().find(candidate => candidate.dataset.id === id);
+  const brochureUrl = analysis?.brochure_url || pending?.brochure_url || row?.dataset.brochure;
   const head = document.createElement('div');
   head.className = 'analysis-head';
   const title = document.createElement('strong');
@@ -1194,6 +1259,7 @@ function buildAnalysisPanel(id) {{
       ? `Queued ${{(pending.requested_at || '').slice(0, 10)}}.`
       : 'Request a sourced review of market value, VvE, erfpacht and listing risks.';
     panel.append(head, note);
+    if (brochureUrl) panel.append(brochureSource(brochureUrl));
     return panel;
   }}
 
@@ -1235,6 +1301,7 @@ function buildAnalysisPanel(id) {{
     analysisCard('Erfpacht', erfpacht, erfpacht.headline || 'Not established'),
   );
   panel.append(head, grid);
+  if (brochureUrl) panel.append(brochureSource(brochureUrl));
 
   for (const [label, items] of [['What jumps out', analysis.flags], ['Questions before bidding', analysis.questions]]) {{
     if (!items?.length) continue;
@@ -1343,6 +1410,15 @@ function toggleFold(tr) {{
   const fpDiv = document.createElement('div');
   fpDiv.className = 'fold-right';
   fpDiv.innerHTML = photosLink + mapHtml + fpHtml;
+  if (tr.dataset.brochure) {{
+    const brochure = document.createElement('a');
+    brochure.className = 'maplink';
+    brochure.href = tr.dataset.brochure;
+    brochure.target = '_blank';
+    brochure.textContent = 'download brochure (PDF)';
+    fpDiv.prepend(document.createElement('br'));
+    fpDiv.prepend(brochure);
+  }}
   const gl = fpDiv.querySelector('[data-open-grid]');
   if (gl) gl.addEventListener('click', e => {{ e.preventDefault(); openGrid(tr); }});
   function renderFpWrap(wrap) {{

@@ -105,6 +105,32 @@ class WebsiteSearchTests(unittest.TestCase):
             ["https://www.funda.nl/detail/koop/amsterdam/example-80923730/80923730/"],
         )
 
+    def test_brochure_parser_accepts_only_direct_funda_pdf(self):
+        url = "https://cloud.funda.nl/valentina_media/233/457/586.pdf"
+        self.assertEqual(fetch.parse_brochure_url(f'<a href="{url}">brochure</a>'), url)
+        self.assertIsNone(
+            fetch.parse_brochure_url(
+                '<a href="https://example.test/valentina_media/586.pdf">brochure</a>'
+            )
+        )
+
+    def test_brochure_fetch_uses_browser_compatible_session(self):
+        session = Mock()
+        session.get.return_value = Mock(
+            status_code=200,
+            text='"https://cloud.funda.nl/valentina_media/233/457/586.pdf"',
+        )
+        self.assertEqual(
+            fetch.fetch_brochure_url("https://www.funda.nl/detail/example", session=session),
+            "https://cloud.funda.nl/valentina_media/233/457/586.pdf",
+        )
+        session.get.assert_called_once_with(
+            "https://www.funda.nl/detail/example",
+            impersonate="chrome124",
+            timeout=30,
+            allow_redirects=True,
+        )
+
     def test_cursor_stops_after_first_entirely_known_page(self):
         session = Mock()
         session.get.side_effect = [
@@ -206,6 +232,7 @@ class PriceBandTests(unittest.TestCase):
             "work_distance_km": 2.0,
             "floorplans": [],
             "photo_urls": [],
+            "brochure_url": "https://cloud.funda.nl/valentina_media/example.pdf",
             "description": "Description",
             "status": "sold",
             "price_history": [
@@ -272,6 +299,10 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("Due-diligence snapshot", page)
         self.assertIn("Market indication", page)
         self.assertIn("Questions before bidding", page)
+        self.assertIn(
+            'data-brochure="https://cloud.funda.nl/valentina_media/example.pdf"', page
+        )
+        self.assertIn("download brochure (PDF)", page)
         self.assertIn("trackingStatus === 'sold'", page)
 
 

@@ -10,6 +10,9 @@ support, not appraisals or substitutes for the underlying documents.
 
 - Confirm that the listing is still available and record its current asking
   price, area, asking price per square metre, time on market, and price history.
+- Download and inspect the listing brochure when one is available. Brochure
+  floor plans, measurement notes, clauses, and VvE/erfpacht wording can contain
+  material facts that are absent from the property-page summary.
 - Read the complete description and characteristics. Do not infer VvE or
   erfpacht health from a short search-result snippet.
 - Note inconsistencies between the description, Funda checklist, cadastral
@@ -81,10 +84,11 @@ snapshot so it can be refreshed when the listing or documents change.
 ## Request workflow
 
 Open a listing's detail pane and choose **Request analysis**. The server stores
-the listing ID and request time in `data/analysis_requests.json`. Completed
+the listing ID, request time, property URL, and discovered brochure PDF URL in
+`data/analysis_requests.json`. Completed
 snapshots live in `data/listing_analyses.json`; saving one clears its outstanding
-request. An existing snapshot has **Request refresh** for changed listings or
-new documents.
+request and retains the brochure URL. An existing snapshot has **Request
+refresh** for changed listings or new documents.
 
 Requests deliberately enter a review queue instead of invoking an unattended
 LLM. The review depends on live sources, document interpretation, and explicit

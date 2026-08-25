@@ -107,16 +107,44 @@ class ListingAnalysisTests(unittest.TestCase):
             server, "ANALYSES_FILE", Path(directory) / "listing_analyses.json"
         ), patch.object(
             server, "ANALYSIS_REQUESTS_FILE", Path(directory) / "analysis_requests.json"
+        ), patch.object(
+            server,
+            "analysis_request_context",
+            return_value={
+                "listing_url": "https://www.funda.nl/detail/example",
+                "brochure_url": "https://cloud.funda.nl/valentina_media/example.pdf",
+            },
         ):
             request = server.request_listing_analysis("8114731")
             self.assertIn("requested_at", request)
+            self.assertEqual(
+                request["brochure_url"],
+                "https://cloud.funda.nl/valentina_media/example.pdf",
+            )
             self.assertEqual(server.load_analysis_requests(), {"8114731": request})
 
             server.save_listing_analysis("8114731", self.analysis())
             saved = server.load_analyses()["8114731"]
             self.assertEqual(saved["market"]["estimate_low"], 700000)
             self.assertIn("updated_at", saved)
+            self.assertEqual(saved["brochure_url"], request["brochure_url"])
             self.assertEqual(server.load_analysis_requests(), {})
+
+    def test_analysis_request_context_discovers_missing_brochure(self):
+        listing_url = "https://www.funda.nl/detail/koop/amsterdam/example/123/"
+        brochure_url = "https://cloud.funda.nl/valentina_media/example.pdf"
+        with patch.object(
+            server.core,
+            "load_listings",
+            return_value={"123": {"url": listing_url}},
+        ), patch.object(
+            server.core, "fetch_brochure_url", return_value=brochure_url
+        ) as discover:
+            self.assertEqual(
+                server.analysis_request_context("123"),
+                {"listing_url": listing_url, "brochure_url": brochure_url},
+            )
+        discover.assert_called_once_with(listing_url)
 
     def test_analysis_rejects_invalid_risk(self):
         analysis = self.analysis()
@@ -135,6 +163,8 @@ class ListingAnalysisTests(unittest.TestCase):
             server, "ANALYSES_FILE", Path(directory) / "listing_analyses.json"
         ), patch.object(
             server, "ANALYSIS_REQUESTS_FILE", Path(directory) / "analysis_requests.json"
+        ), patch.object(
+            server, "analysis_request_context", return_value={}
         ), patch.object(server, "PASSWORD", None):
             httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
             thread = threading.Thread(target=httpd.serve_forever, daemon=True)
