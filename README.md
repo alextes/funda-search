@@ -7,8 +7,8 @@ Personal tool for house hunting on [funda.nl](https://www.funda.nl). Funda is go
 This was the big unknown, so it was the first proof of concept. Findings:
 
 - **Plain HTTP to www.funda.nl is blocked** by DataDome bot protection (you get a "Je bent bijna op de pagina die je zoekt" challenge page).
-- **[pyfunda](https://github.com/0xMH/pyfunda) works.** It talks to funda's reverse-engineered mobile app API (`*.funda.io`), which returns clean JSON: no scraping, no browser, no CAPTCHA. This is the approach used here.
-- **Fallbacks if pyfunda breaks:** the website embeds full listing data in a `__NUXT_DATA__` JSON blob (devalue format) that can be extracted from a real Chrome session, which passes DataDome fine. Plain HTML scraping of the cards also works from a real browser.
+- **[pyfunda](https://github.com/0xMH/pyfunda) still provides listing details**, but its anonymous search endpoint can require a token. The app tries that search first, then falls back to Funda's public server-rendered search using `curl-cffi` with a Chrome-compatible TLS fingerprint.
+- **The fallback needs no login, browser session, or captured token.** It reads only canonical listing links from the HTML, stops once it reaches a page already present in local history, and continues to use pyfunda's structured detail response for enrichment.
 
 The mobile API gives us everything: price, floor area, rooms, energy label, wijk + buurt, coordinates, full description, photos, and floor plan URLs. The app records price and status changes as an append-only observation history; older records receive one clearly marked legacy snapshot because changes from before tracking began cannot be reconstructed.
 

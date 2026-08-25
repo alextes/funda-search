@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import fetch
 
@@ -56,6 +56,101 @@ class HistoryTests(unittest.TestCase):
         )
         self.assertEqual([event["price"] for event in listing["price_history"]], [500_000, 475_000])
         self.assertEqual(len(listing["status_history"]), 1)
+
+
+class WebsiteSearchTests(unittest.TestCase):
+    CONFIG = {
+        "location": "amsterdam",
+        "filters": {
+            "min_price": 400_000,
+            "max_price": 850_000,
+            "min_area": 75,
+            "min_bedrooms": 2,
+        },
+        "pages": 3,
+        "website_max_pages": 20,
+    }
+
+    @staticmethod
+    def page(*ids: str) -> str:
+        links = "".join(
+            f'<a href="/detail/koop/amsterdam/example-{listing_id}/{listing_id}/">x</a>'
+            for listing_id in ids
+        )
+        return f'<script id="__NUXT_DATA__"></script>{links}'
+
+    def test_public_listing_id_accepts_canonical_url_and_query(self):
+        self.assertEqual(
+            fetch.public_listing_id(
+                "https://www.funda.nl/detail/koop/amsterdam/example/80923730/?x=1"
+            ),
+            "80923730",
+        )
+        self.assertIsNone(fetch.public_listing_id("https://www.funda.nl/zoeken/koop"))
+
+    def test_website_search_url_matches_filters(self):
+        url = fetch.website_search_url(self.CONFIG, 2)
+        self.assertIn("selected_area=amsterdam", url)
+        self.assertIn("price=400000-850000", url)
+        self.assertIn("floor_area=75-", url)
+        self.assertIn("bedrooms=2-", url)
+        self.assertIn("sort=publish_date_utc_desc", url)
+        self.assertIn("page=2", url)
+
+    def test_parser_deduplicates_listing_links(self):
+        page = self.page("80923730", "80923730")
+        page += '<a href="/makelaar/example">ignore</a>'
+        self.assertEqual(
+            fetch.parse_listing_urls(page),
+            ["https://www.funda.nl/detail/koop/amsterdam/example-80923730/80923730/"],
+        )
+
+    def test_cursor_stops_after_first_entirely_known_page(self):
+        session = Mock()
+        session.get.side_effect = [
+            Mock(status_code=200, text=self.page("30", "20")),
+            Mock(status_code=200, text=self.page("20", "10")),
+        ]
+        listings = {
+            "a": {"url": "https://www.funda.nl/detail/koop/amsterdam/a/10/"},
+            "b": {"url": "https://www.funda.nl/detail/koop/amsterdam/b/20/"},
+        }
+
+        with patch.object(fetch, "WEBSITE_PAGE_SIZE", 2):
+            urls = fetch.search_website(self.CONFIG, listings, session=session)
+
+        self.assertEqual(len(urls), 3)
+        self.assertEqual(fetch.public_listing_id(urls[0]), "30")
+        self.assertEqual(session.get.call_count, 2)
+
+    def test_bot_challenge_is_rejected(self):
+        session = Mock()
+        session.get.return_value = Mock(
+            status_code=200,
+            text="<html>Je bent bijna op de pagina</html>",
+        )
+        with self.assertRaisesRegex(RuntimeError, "bot challenge"):
+            fetch.search_website(self.CONFIG, {}, session=session)
+
+    def test_fetch_uses_website_urls_when_api_search_is_unauthorized(self):
+        url = "https://www.funda.nl/detail/koop/amsterdam/example/80923730/"
+        detail = Mock(global_id=8114731, id=17296467, title="Example")
+        client = Mock()
+        client.listing.return_value = detail
+        context = MagicMock()
+        context.__enter__.return_value = client
+        listings = {}
+
+        with patch.object(fetch, "Funda", return_value=context), patch.object(
+            fetch, "search_pages", side_effect=fetch.SearchError("401: no token provided")
+        ), patch.object(fetch, "search_website", return_value=[url]), patch.object(
+            fetch, "build_record", return_value={"id": 8114731}
+        ), patch.object(fetch.time, "sleep"):
+            total, new = fetch.fetch(self.CONFIG, listings)
+
+        self.assertEqual((total, new), (1, 1))
+        self.assertEqual(listings["8114731"]["url"], url)
+        client.listing.assert_called_once_with(url)
 
 
 class PriceBandTests(unittest.TestCase):

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Fetch new funda listings, enrich them, and render an HTML overview.
 
-Uses pyfunda (reverse-engineered funda mobile API) — no scraping, no browser.
-State lives in data/listings.json; every run only fetches details for
-listings we haven't seen before, then regenerates overview.html.
+Uses pyfunda for listing details and its search API when available. If Funda's
+search API rejects anonymous requests, discovery falls back to the public
+server-rendered search page. State lives in data/listings.json; every run only
+fetches details for listings we haven't seen before, then regenerates
+overview.html.
 """
 
 from __future__ import annotations
@@ -13,13 +15,17 @@ import html
 import io
 import json
 import math
+import re
 import sys
 import time
 import urllib.request
 from datetime import date, datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlencode, urljoin, urlsplit
 
-from funda import Funda
+from curl_cffi import requests as curl_requests
+from funda import Funda, SearchError
 from PIL import Image
 
 ROOT = Path(__file__).parent
@@ -52,6 +58,31 @@ BROWSER_UA = (
 FLOORPLAN_WHITE_MIN = 0.5
 FLOORPLAN_GRAY_MIN = 0.5
 FLOORPLAN_DARK_MIN = 0.008
+FUNDA_SEARCH_URL = "https://www.funda.nl/zoeken/koop"
+FUNDA_LISTING_PATH = re.compile(r"^/detail/koop/.+/(\d+)/?$")
+WEBSITE_PAGE_SIZE = 15
+WEBSITE_MAX_PAGES = 20
+
+
+class _ListingLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: list[str] = []
+        self._seen: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+        href = dict(attrs).get("href")
+        if not href:
+            return
+        parsed = urlsplit(urljoin(FUNDA_SEARCH_URL, href))
+        if not FUNDA_LISTING_PATH.match(parsed.path):
+            return
+        url = f"https://www.funda.nl{parsed.path}"
+        if url not in self._seen:
+            self._seen.add(url)
+            self.urls.append(url)
 
 
 def detect_floorplans(photo_urls: list[str]) -> list[str]:
@@ -267,6 +298,97 @@ def search_pages(client: Funda, config: dict) -> list:
     return items
 
 
+def public_listing_id(url: str | None) -> str | None:
+    """Extract Funda's public listing ID from a canonical detail URL."""
+    if not url:
+        return None
+    match = FUNDA_LISTING_PATH.match(urlsplit(url).path)
+    return match.group(1) if match else None
+
+
+def website_search_url(config: dict, page: int = 1) -> str:
+    """Build the public website equivalent of the configured API search."""
+    filters = config.get("filters", {})
+    params: list[tuple[str, str | int]] = [("selected_area", config["location"])]
+
+    def add_range(name: str, lower_key: str, upper_key: str) -> None:
+        lower, upper = filters.get(lower_key), filters.get(upper_key)
+        if lower is not None or upper is not None:
+            lower_text = "" if lower is None else lower
+            upper_text = "" if upper is None else upper
+            params.append((name, f"{lower_text}-{upper_text}"))
+
+    add_range("price", "min_price", "max_price")
+    add_range("floor_area", "min_area", "max_area")
+    add_range("bedrooms", "min_bedrooms", "max_bedrooms")
+    params.append(("sort", "publish_date_utc_desc"))
+    if page > 1:
+        params.append(("page", page))
+    return f"{FUNDA_SEARCH_URL}?{urlencode(params)}"
+
+
+def parse_listing_urls(page: str) -> list[str]:
+    parser = _ListingLinkParser()
+    parser.feed(page)
+    return parser.urls
+
+
+def search_website(
+    config: dict,
+    listings: dict[str, dict],
+    *,
+    session=None,
+) -> list[str]:
+    """Discover listing URLs from Funda's anonymous server-rendered search."""
+    known_ids = {
+        listing_id
+        for listing in listings.values()
+        if (listing_id := public_listing_id(listing.get("url")))
+    }
+    max_pages = max(1, int(config.get("website_max_pages", WEBSITE_MAX_PAGES)))
+    initial_pages = max(1, min(int(config.get("pages", 3)), max_pages))
+    client = session or curl_requests.Session()
+    found: list[str] = []
+    seen: set[str] = set()
+
+    for page_number in range(1, max_pages + 1):
+        response = client.get(
+            website_search_url(config, page_number),
+            impersonate="chrome124",
+            timeout=30,
+            allow_redirects=True,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"website search failed with status {response.status_code}")
+        if (
+            "Je bent bijna op de pagina" in response.text
+            or "__NUXT_DATA__" not in response.text
+        ):
+            raise RuntimeError("website search returned a bot challenge")
+        page_urls = parse_listing_urls(response.text)
+        if not page_urls:
+            raise RuntimeError("website search returned no listing links")
+
+        for url in page_urls:
+            if url not in seen:
+                seen.add(url)
+                found.append(url)
+
+        page_ids = {
+            listing_id
+            for url in page_urls
+            if (listing_id := public_listing_id(url))
+        }
+        if known_ids and page_ids and page_ids <= known_ids:
+            break
+        if not known_ids and page_number >= initial_pages:
+            break
+        if len(page_urls) < WEBSITE_PAGE_SIZE:
+            break
+
+    return found
+
+
 def build_record(item, detail, config: dict) -> dict:
     addr = item.address
     wijk = None
@@ -338,7 +460,37 @@ def build_record(item, detail, config: dict) -> dict:
 
 def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
     with Funda() as client:
-        items = search_pages(client, config)
+        try:
+            items = search_pages(client, config)
+        except SearchError as error:
+            print(f"search API unavailable ({error}); using website fallback")
+            urls = search_website(config, listings)
+            known_ids = {
+                listing_id
+                for listing in listings.values()
+                if (listing_id := public_listing_id(listing.get("url")))
+            }
+            new_urls = [url for url in urls if public_listing_id(url) not in known_ids]
+            print(f"website search returned {len(urls)} listings, {len(new_urls)} new")
+
+            for n, url in enumerate(new_urls, 1):
+                try:
+                    detail = client.listing(url)
+                    key = str(detail.global_id or detail.id)
+                    if key in listings:
+                        continue
+                    record = build_record(detail, detail, config)
+                    record["url"] = url
+                    listings[key] = record
+                    print(f"  [{n}/{len(new_urls)}] {detail.title}")
+                except Exception as detail_error:
+                    print(
+                        f"  [{n}/{len(new_urls)}] {url} FAILED: {detail_error}",
+                        file=sys.stderr,
+                    )
+                time.sleep(DETAIL_FETCH_DELAY_S)
+            return len(urls), len(new_urls)
+
         new_items = [i for i in items if str(i.global_id or i.id) not in listings]
         print(f"search returned {len(items)} listings, {len(new_items)} new")
 
