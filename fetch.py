@@ -401,11 +401,16 @@ def build_record(item, detail, config: dict) -> dict:
     area = detail.living_area or item.living_area
     price_per_m2 = round(price / area) if price and area else None
 
-    lat = lon = distance_km = None
+    lat = lon = distance_km = work_distance_km = None
     if detail.location:
         lat, lon = detail.location.latitude, detail.location.longitude
         center = config["center"]
         distance_km = round(haversine_km(lat, lon, center["lat"], center["lon"]), 1)
+        work = config.get("work")
+        if work:
+            work_distance_km = round(
+                haversine_km(lat, lon, work["lat"], work["lon"]), 1
+            )
 
     photos = list(detail.media.photo_urls or [])
     photo_url = photos[0] if photos else None
@@ -448,6 +453,7 @@ def build_record(item, detail, config: dict) -> dict:
         "lat": lat,
         "lon": lon,
         "distance_km": distance_km,
+        "work_distance_km": work_distance_km,
         "floorplans": floorplans,
         "photo_url": photo_url,
         "photo_urls": photos,
@@ -613,6 +619,19 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     def format_euros(value: int) -> str:
         return f"€ {value:,}".replace(",", ".")
 
+    def distance_to(l: dict, destination: dict | None, stored_key: str) -> float | None:
+        lat, lon = l.get("lat"), l.get("lon")
+        if destination and lat is not None and lon is not None:
+            return round(
+                haversine_km(lat, lon, destination["lat"], destination["lon"]), 1
+            )
+        return l.get(stored_key)
+
+    def distance_td(value: float | None) -> str:
+        if value is None:
+            return '<td data-sort="999">–</td>'
+        return f'<td data-sort="{value}">{value} km</td>'
+
     def format_band(band: dict | None, asking_ppm2: int | None) -> tuple[str, int, str]:
         if not band:
             return "–", 0, ""
@@ -636,6 +655,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     for l in rows:
         band = price_band_for_listing(l, bands)
         band_label, band_sort, band_comparison = format_band(band, l.get("price_per_m2"))
+        center_distance = distance_to(l, config.get("center"), "distance_km")
+        work_distance = distance_to(l, config.get("work"), "work_distance_km")
         history_data = json.dumps(
             {
                 "prices": l.get("price_history") or [],
@@ -684,7 +705,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <td class="band {band_comparison}" data-sort="{band_sort}" title="Amsterdam Woningwaardekaart 2025: interpolated transaction-price band">{band_label}{f'<span>{band_comparison}</span>' if band_comparison else ''}</td>
   {td(l.get('rooms'))}
   {td(l.get('energy_label'))}
-  <td data-sort="{l.get('distance_km') or 999}">{l.get('distance_km') if l.get('distance_km') is not None else '–'} km</td>
+  {distance_td(center_distance)}
+  {distance_td(work_distance)}
   <td class="listed" data-date="{html.escape(l.get('publication_date') or '')}" title="{html.escape(l.get('publication_date') or '')}">–</td>
   <td class="score" data-sort="-1"><div class="rate">
     <button data-s="0" title="reviewed, not interesting">✕</button>
@@ -785,7 +807,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <table id="t">
 <thead><tr>
   <th></th><th>Address</th><th>Status</th><th>District</th><th>Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>2025 band</th><th>Rooms</th><th>Energy</th><th>Distance</th><th>Listed</th><th data-defdesc="1">Score</th>
+  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">Science Park 303</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(body_rows)}
@@ -1023,7 +1045,7 @@ function toggleFold(tr) {{
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
-  cell.colSpan = 14;
+  cell.colSpan = 15;
   const fold = document.createElement('div');
   fold.className = 'fold';
   const descDiv = document.createElement('div');

@@ -4,7 +4,7 @@
 
 - [x] Proof of concept: get listing data out of funda (via pyfunda / mobile API — see README)
 - [x] Track seen listings, only fetch new ones (`data/listings.json`)
-- [x] HTML overview: photo, address, wijk/buurt, price, m², €/m², rooms, energy label, distance from center, floor plan link, description
+- [x] HTML overview: photo, address, wijk/buurt, price, m², €/m², rooms, energy label, straight-line distances to Dam and Science Park 303, floor plan link, description
 - [x] Sortable columns, expandable descriptions, "new" badge for listings first seen today
 - [x] Rate listings 0–3 (0 = reviewed, not interesting), persisted in localStorage; filters to hide rated / hide 0-rated; sortable score column
 - [x] Fold-out shows description (left) next to floor plan image (right)

@@ -203,6 +203,7 @@ class PriceBandTests(unittest.TestCase):
             "lat": 52.2,
             "lon": 4.2,
             "distance_km": 1.0,
+            "work_distance_km": 2.0,
             "floorplans": [],
             "photo_urls": [],
             "description": "Description",
@@ -229,14 +230,29 @@ class PriceBandTests(unittest.TestCase):
             with patch.object(fetch, "ROOT", Path(directory)), patch.object(
                 fetch, "OVERVIEW_FILE", output
             ), patch.object(fetch, "load_price_bands", return_value=bands):
-                fetch.render({"location": "amsterdam", "filters": {}}, {"1": listing})
+                fetch.render(
+                    {
+                        "location": "amsterdam",
+                        "filters": {},
+                        "center": {"lat": 52.21, "lon": 4.21},
+                        "work": {"lat": 52.22, "lon": 4.22},
+                    },
+                    {"1": listing},
+                )
             page = output.read_text()
 
         self.assertIn("2025 band", page)
         self.assertIn("€ 5.848–6.683/m²", page)
         self.assertIn('class="band below"', page)
         self.assertIn("Observed history", page)
-        self.assertIn("cell.colSpan = 14", page)
+        self.assertIn("cell.colSpan = 15", page)
+        self.assertIn('title="Straight-line distance to Dam Square">Dam</th>', page)
+        self.assertIn(
+            'title="Straight-line distance to Science Park 303">Science Park 303</th>',
+            page,
+        )
+        self.assertIn("1.3 km", page)
+        self.assertIn("2.6 km", page)
         self.assertIn('data-market-gone="1"', page)
         self.assertIn('<input type="checkbox" id="hideSold" checked>', page)
         self.assertIn("<th></th><th>Address</th><th>Status</th>", page)

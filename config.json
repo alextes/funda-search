@@ -14,5 +14,10 @@
     "name": "Dam, Amsterdam",
     "lat": 52.3731,
     "lon": 4.8926
+  },
+  "work": {
+    "name": "Science Park 303",
+    "lat": 52.355778,
+    "lon": 4.954986
   }
 }

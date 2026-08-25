@@ -44,11 +44,11 @@ curl localhost:8000/healthz                    # last fetch time, count, last er
 open overview.html
 ```
 
-Search settings (city, price/area filters, number of pages, "center" reference point for distance) live in [config.json](config.json).
+Search settings (city, price/area filters, number of pages, and the Dam and Science Park reference points for distance) live in [config.json](config.json).
 
 ## How it works
 
-- `fetch.py` searches funda (newest first), skips listings already in `data/listings.json`, fetches details for the new ones (description, coordinates, floor plans), and computes derived fields: **€/m²**, **2025 local transaction-price band**, and **distance from the center** (haversine to Dam).
+- `fetch.py` searches funda (newest first), skips listings already in `data/listings.json`, fetches details for the new ones (description, coordinates, floor plans), and computes derived fields: **€/m²**, **2025 local transaction-price band**, and straight-line distances to **Dam Square** and **Science Park 303**.
 - `data/listings.json` is the state: everything we've ever seen, keyed by listing id. New-since-last-run rows get a "nieuw" badge in the overview.
 - `overview.html` is a self-contained page: sortable columns (click a header), click a row to expand the description, links to the funda page and the floor plan.
 
