@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets as secrets_mod
 import sys
 import threading
@@ -274,6 +275,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
+        row_batch_match = re.fullmatch(r"/listing-rows/([1-9]\d*)\.html", path)
         if path == "/healthz":
             body = "".join(f"{k}: {v}\n" for k, v in state.items())
             self.respond(200, "text/plain; charset=utf-8", body.encode())
@@ -286,6 +288,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(503, "text/plain", b"no overview yet, first fetch still running")
                 return
             self.respond(200, "text/html; charset=utf-8", core.OVERVIEW_FILE.read_bytes())
+        elif row_batch_match:
+            batch_file = core.row_batch_path(int(row_batch_match.group(1)))
+            if not batch_file.exists():
+                self.respond(404, "text/plain", b"listing batch not found")
+                return
+            self.respond(200, "text/html; charset=utf-8", batch_file.read_bytes())
         elif path == "/ratings.json":
             with ratings_lock:
                 body = json.dumps(load_ratings()).encode()

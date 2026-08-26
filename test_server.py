@@ -82,6 +82,34 @@ class TrackingStatusTests(unittest.TestCase):
                 httpd.server_close()
                 thread.join(timeout=5)
 
+    def test_listing_row_batch_is_served(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            server.core, "ROOT", Path(directory)
+        ), patch.object(server, "PASSWORD", None):
+            batch_file = server.core.row_batch_path(1)
+            batch_file.parent.mkdir(parents=True)
+            batch_file.write_text('<tr data-id="129"></tr>')
+            httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            connection = http.client.HTTPConnection(*httpd.server_address, timeout=5)
+            try:
+                connection.request("GET", "/listing-rows/1.html")
+                response = connection.getresponse()
+                body = response.read().decode()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(body, '<tr data-id="129"></tr>')
+
+                connection.request("GET", "/listing-rows/2.html")
+                response = connection.getresponse()
+                response.read()
+                self.assertEqual(response.status, 404)
+            finally:
+                connection.close()
+                httpd.shutdown()
+                httpd.server_close()
+                thread.join(timeout=5)
+
 
 class ListingAnalysisTests(unittest.TestCase):
     def analysis(self):

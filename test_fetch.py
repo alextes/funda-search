@@ -305,6 +305,42 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("download brochure (PDF)", page)
         self.assertIn("trackingStatus === 'sold'", page)
 
+    def test_render_puts_only_first_128_rows_in_overview(self):
+        listings = {
+            str(index): {
+                "id": index,
+                "url": f"https://example.test/listing/{index}",
+                "title": f"Example {index}",
+                "first_seen": "2026-08-01",
+                "publication_date": "2026-08-01",
+                "floorplans": [],
+                "photo_urls": [],
+                "status": "available",
+            }
+            for index in range(130)
+        }
+        config = {"location": "amsterdam", "filters": {}}
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "overview.html"
+            stale_batch = root / "data" / "overview_batches" / "9.html"
+            stale_batch.parent.mkdir(parents=True)
+            stale_batch.write_text("stale")
+            with patch.object(fetch, "ROOT", root), patch.object(
+                fetch, "OVERVIEW_FILE", output
+            ), patch.object(fetch, "load_price_bands", return_value=[]):
+                fetch.render(config, listings)
+                batch = fetch.row_batch_path(1).read_text()
+
+            page = output.read_text()
+            self.assertEqual(page.count("<tr data-id="), 128)
+            self.assertEqual(batch.count("<tr data-id="), 2)
+            self.assertIn("const totalListingCount = 130", page)
+            self.assertIn("const rowBatchCount = 1", page)
+            self.assertIn("loadMoreRows", page)
+            self.assertFalse(stale_batch.exists())
+
 
 class DistrictTests(unittest.TestCase):
     def test_cached_municipality_districts_load(self):

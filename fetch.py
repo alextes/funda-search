@@ -32,6 +32,7 @@ ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data" / "listings.json"
 OVERVIEW_FILE = ROOT / "overview.html"
 CONFIG_FILE = ROOT / "config.json"
+ROW_BATCH_SIZE = 128
 PRICE_BANDS_FILE = ROOT / "reference" / "woningwaarde-2025.geojson"
 PRICE_BANDS_YEAR = 2025
 PRICE_BANDS_URL = (
@@ -333,6 +334,13 @@ def write_atomic(path: Path, text: str) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(text)
     tmp.replace(path)
+
+
+def row_batch_path(index: int) -> Path:
+    """Return the generated HTML fragment for a one-based listing batch."""
+    if index < 1:
+        raise ValueError("row batch index must be positive")
+    return ROOT / "data" / "overview_batches" / f"{index}.html"
 
 
 def save_listings(listings: dict[str, dict]) -> None:
@@ -828,6 +836,22 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </tr>"""
         )
 
+    initial_body_rows = body_rows[:ROW_BATCH_SIZE]
+    row_batches = [
+        body_rows[start : start + ROW_BATCH_SIZE]
+        for start in range(ROW_BATCH_SIZE, len(body_rows), ROW_BATCH_SIZE)
+    ]
+    batch_directory = row_batch_path(1).parent
+    batch_directory.mkdir(parents=True, exist_ok=True)
+    active_batch_files = set()
+    for index, batch in enumerate(row_batches, start=1):
+        batch_file = row_batch_path(index)
+        write_atomic(batch_file, "\n".join(batch))
+        active_batch_files.add(batch_file)
+    for stale_batch in batch_directory.glob("*.html"):
+        if stale_batch not in active_batch_files:
+            stale_batch.unlink()
+
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -927,11 +951,16 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   #show img {{ max-width: 96vw; max-height: 92vh; object-fit: contain; cursor: pointer; }}
   #show .bar {{ position: absolute; top: .8rem; right: 1rem; display: flex; gap: 1rem; align-items: center; color: #ddd; font-size: .85rem; }}
   #show .bar button {{ border: 1px solid #777; background: transparent; color: #ddd; border-radius: 4px; padding: .3rem .7rem; cursor: pointer; }}
+  .load-more {{ display: flex; justify-content: center; align-items: center; gap: .7rem; margin: 1rem 0 2rem; }}
+  .load-more button {{ border: 1px solid #aaa; background: #fff; color: #333; border-radius: 4px; padding: .45rem .8rem; cursor: pointer; font: inherit; }}
+  .load-more button:hover {{ border-color: #f7a100; color: #9b6200; }}
+  .load-more button:disabled {{ border-color: #ddd; color: #999; cursor: default; }}
+  .load-more[hidden], .load-more button[hidden] {{ display: none; }}
 </style>
 </head>
 <body class="hide-sold">
 <h1>funda-search · {html.escape(config['location'])}</h1>
-<p class="meta">{len(rows)} listings · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
+<p class="meta">{len(rows)} listings · {len(initial_body_rows)} loaded initially · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
 <p class="meta" id="statusLegend"><strong>Status:</strong> call · viewing requested · viewing planned · viewed · bid · sold · bought</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
@@ -948,9 +977,13 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
-{chr(10).join(body_rows)}
+{chr(10).join(initial_body_rows)}
 </tbody>
 </table>
+<div class="load-more" id="loadMoreWrap"{' hidden' if not row_batches else ''}>
+  <button id="loadMore" type="button">load more</button>
+  <span id="loadProgress" class="meta"></span>
+</div>
 <div id="grid" hidden>
   <header><span id="gridTitle"></span><button id="gridClose">close (esc)</button></header>
   <div class="cells"></div>
@@ -961,14 +994,21 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </div>
 <script>
 const tbody = document.querySelector('#t tbody');
+const totalListingCount = {len(rows)};
+const rowBatchCount = {len(row_batches)};
+const rowBatchSize = {ROW_BATCH_SIZE};
+let nextRowBatch = 1;
 
-for (const cell of document.querySelectorAll('td.listed')) {{
-  const iso = cell.dataset.date;
-  if (!iso) {{ cell.dataset.sort = 9999; continue; }}
-  const days = Math.max(0, Math.round((Date.now() - new Date(iso + 'T00:00')) / 86400000));
-  cell.textContent = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${{days}}d ago`;
-  cell.dataset.sort = days;
+function hydrateListedDates(root = document) {{
+  for (const cell of root.querySelectorAll('td.listed')) {{
+    const iso = cell.dataset.date;
+    if (!iso) {{ cell.dataset.sort = 9999; continue; }}
+    const days = Math.max(0, Math.round((Date.now() - new Date(iso + 'T00:00')) / 86400000));
+    cell.textContent = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${{days}}d ago`;
+    cell.dataset.sort = days;
+  }}
 }}
+hydrateListedDates();
 const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
 const hideUO = document.getElementById('hideUO');
@@ -1086,6 +1126,50 @@ async function initState() {{
 
 function listingRows() {{ return [...tbody.querySelectorAll('tr[data-id]')]; }}
 
+const loadMoreWrap = document.getElementById('loadMoreWrap');
+const loadMoreButton = document.getElementById('loadMore');
+const loadProgress = document.getElementById('loadProgress');
+
+function updateLoadMore() {{
+  const loaded = listingRows().length;
+  const remaining = Math.max(0, totalListingCount - loaded);
+  loadProgress.textContent = `${{loaded}} of ${{totalListingCount}} loaded`;
+  if (nextRowBatch > rowBatchCount || !remaining) {{
+    loadMoreButton.hidden = true;
+    return;
+  }}
+  loadMoreWrap.hidden = false;
+  loadMoreButton.hidden = false;
+  loadMoreButton.disabled = false;
+  loadMoreButton.textContent = `load ${{Math.min(rowBatchSize, remaining)}} more`;
+}}
+
+async function loadMoreRows() {{
+  loadMoreButton.disabled = true;
+  loadMoreButton.textContent = 'loading…';
+  try {{
+    const response = await fetch(`listing-rows/${{nextRowBatch}}.html`, {{cache: 'no-store'}});
+    if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+    const template = document.createElement('template');
+    template.innerHTML = await response.text();
+    hydrateListedDates(template.content);
+    tbody.append(template.content);
+    nextRowBatch++;
+    applyRatings();
+    applyTrackingStatuses();
+    reapplyActiveSort();
+    applyFilters();
+    updateLoadMore();
+  }} catch (error) {{
+    loadMoreButton.disabled = false;
+    loadMoreButton.textContent = 'try loading again';
+    loadMoreButton.title = `Load failed: ${{error.message}}`;
+  }}
+}}
+
+loadMoreButton.addEventListener('click', loadMoreRows);
+updateLoadMore();
+
 function applyRatings() {{
   for (const tr of listingRows()) {{
     const s = ratings[tr.dataset.id];
@@ -1124,7 +1208,7 @@ function applyFilters() {{
     if (!hide) visible++;
   }}
   document.getElementById('counts').textContent =
-    `${{visible}} shown · ${{rated}} rated · ${{tracked}} tracked · ${{sold}} sold`;
+    `${{visible}} shown · ${{listingRows().length}}/${{totalListingCount}} loaded · ${{rated}} rated · ${{tracked}} tracked · ${{sold}} sold`;
 }}
 
 hideRated.addEventListener('change', applyFilters);
@@ -1132,12 +1216,20 @@ hideNo.addEventListener('change', applyFilters);
 hideUO.addEventListener('change', applyFilters);
 hideSold.addEventListener('change', applyFilters);
 
-document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click', () => {{
+const tableHeaders = [...document.querySelectorAll('#t th')];
+
+function sortRowsBy(th, i, toggle = true) {{
   document.querySelectorAll('.desc-row').forEach(r => r.remove());
   const rows = listingRows();
-  const dir = th.dataset.dir = th.dataset.dir
-    ? (th.dataset.dir === 'asc' ? 'desc' : 'asc')
-    : (th.dataset.defdesc ? 'desc' : 'asc');
+  let dir = th.dataset.dir;
+  if (toggle) {{
+    dir = dir
+      ? (dir === 'asc' ? 'desc' : 'asc')
+      : (th.dataset.defdesc ? 'desc' : 'asc');
+    tableHeaders.forEach(other => {{ if (other !== th) delete other.dataset.dir; }});
+    th.dataset.dir = dir;
+  }}
+  if (!dir) return;
   rows.sort((a, b) => {{
     const av = a.cells[i]?.dataset.sort ?? a.cells[i]?.textContent.trim() ?? '';
     const bv = b.cells[i]?.dataset.sort ?? b.cells[i]?.textContent.trim() ?? '';
@@ -1146,7 +1238,15 @@ document.querySelectorAll('#t th').forEach((th, i) => th.addEventListener('click
     return dir === 'asc' ? cmp : -cmp;
   }});
   rows.forEach(r => tbody.appendChild(r));
-}}));
+}}
+
+function reapplyActiveSort() {{
+  const index = tableHeaders.findIndex(th => th.dataset.dir);
+  if (index !== -1) sortRowsBy(tableHeaders[index], index, false);
+}}
+
+tableHeaders.forEach((th, i) =>
+  th.addEventListener('click', () => sortRowsBy(th, i)));
 
 function rate(tr, s) {{
   const id = tr.dataset.id;
