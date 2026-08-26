@@ -42,11 +42,12 @@ python3 -m venv .venv
 ```
 
 **Server mode** (the normal way): serves the overview and keeps it fresh — a background
-loop re-fetches whenever the data is older than `fetch_interval_seconds` (default 60s).
+loop re-fetches whenever the data is older than `fetch_interval_seconds` (configured
+to two hours).
 
 ```bash
 .venv/bin/python server.py                     # http://127.0.0.1:8000
-.venv/bin/python server.py --host 0.0.0.0 --port 8000 --interval 60
+.venv/bin/python server.py --host 0.0.0.0 --port 8000 --interval 7200
 curl localhost:8000/healthz                    # last fetch time, count, last error
 ```
 
