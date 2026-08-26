@@ -339,6 +339,9 @@ class PriceBandTests(unittest.TestCase):
             self.assertIn("const totalListingCount = 130", page)
             self.assertIn("const rowBatchCount = 1", page)
             self.assertIn("loadMoreRows", page)
+            self.assertIn("async function loadAllRowsForSort()", page)
+            self.assertIn("if (await loadAllRowsForSort()) sortRowsBy(th, i)", page)
+            self.assertIn("const stateReady = initState()", page)
             self.assertFalse(stale_batch.exists())
 
 

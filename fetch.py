@@ -1129,45 +1129,59 @@ function listingRows() {{ return [...tbody.querySelectorAll('tr[data-id]')]; }}
 const loadMoreWrap = document.getElementById('loadMoreWrap');
 const loadMoreButton = document.getElementById('loadMore');
 const loadProgress = document.getElementById('loadProgress');
+let rowLoadPromise = null;
+let loadingAllForSort = false;
 
 function updateLoadMore() {{
   const loaded = listingRows().length;
   const remaining = Math.max(0, totalListingCount - loaded);
-  loadProgress.textContent = `${{loaded}} of ${{totalListingCount}} loaded`;
+  loadProgress.textContent = loadingAllForSort
+    ? `loading all ${{totalListingCount}} listings for sorting…`
+    : `${{loaded}} of ${{totalListingCount}} loaded`;
   if (nextRowBatch > rowBatchCount || !remaining) {{
     loadMoreButton.hidden = true;
     return;
   }}
   loadMoreWrap.hidden = false;
   loadMoreButton.hidden = false;
-  loadMoreButton.disabled = false;
-  loadMoreButton.textContent = `load ${{Math.min(rowBatchSize, remaining)}} more`;
+  loadMoreButton.disabled = loadingAllForSort;
+  loadMoreButton.textContent = loadingAllForSort
+    ? 'loading…'
+    : `load ${{Math.min(rowBatchSize, remaining)}} more`;
 }}
 
-async function loadMoreRows() {{
-  loadMoreButton.disabled = true;
-  loadMoreButton.textContent = 'loading…';
-  try {{
-    const response = await fetch(`listing-rows/${{nextRowBatch}}.html`, {{cache: 'no-store'}});
-    if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
-    const template = document.createElement('template');
-    template.innerHTML = await response.text();
-    hydrateListedDates(template.content);
-    tbody.append(template.content);
-    nextRowBatch++;
-    applyRatings();
-    applyTrackingStatuses();
-    reapplyActiveSort();
-    applyFilters();
-    updateLoadMore();
-  }} catch (error) {{
-    loadMoreButton.disabled = false;
-    loadMoreButton.textContent = 'try loading again';
-    loadMoreButton.title = `Load failed: ${{error.message}}`;
-  }}
+function loadMoreRows(reapplySort = true) {{
+  if (rowLoadPromise) return rowLoadPromise;
+  rowLoadPromise = (async () => {{
+    loadMoreButton.disabled = true;
+    loadMoreButton.textContent = 'loading…';
+    try {{
+      const response = await fetch(`listing-rows/${{nextRowBatch}}.html`, {{cache: 'no-store'}});
+      if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+      const template = document.createElement('template');
+      template.innerHTML = await response.text();
+      hydrateListedDates(template.content);
+      tbody.append(template.content);
+      nextRowBatch++;
+      applyRatings();
+      applyTrackingStatuses();
+      if (reapplySort) reapplyActiveSort();
+      applyFilters();
+      updateLoadMore();
+      return true;
+    }} catch (error) {{
+      loadMoreButton.disabled = false;
+      loadMoreButton.textContent = 'try loading again';
+      loadMoreButton.title = `Load failed: ${{error.message}}`;
+      return false;
+    }} finally {{
+      rowLoadPromise = null;
+    }}
+  }})();
+  return rowLoadPromise;
 }}
 
-loadMoreButton.addEventListener('click', loadMoreRows);
+loadMoreButton.addEventListener('click', () => loadMoreRows());
 updateLoadMore();
 
 function applyRatings() {{
@@ -1245,8 +1259,27 @@ function reapplyActiveSort() {{
   if (index !== -1) sortRowsBy(tableHeaders[index], index, false);
 }}
 
+async function loadAllRowsForSort() {{
+  if (listingRows().length >= totalListingCount) return true;
+  loadingAllForSort = true;
+  updateLoadMore();
+  while (nextRowBatch <= rowBatchCount) {{
+    if (!await loadMoreRows(false)) {{
+      loadingAllForSort = false;
+      updateLoadMore();
+      return false;
+    }}
+  }}
+  loadingAllForSort = false;
+  updateLoadMore();
+  return listingRows().length === totalListingCount;
+}}
+
 tableHeaders.forEach((th, i) =>
-  th.addEventListener('click', () => sortRowsBy(th, i)));
+  th.addEventListener('click', async () => {{
+    await stateReady;
+    if (await loadAllRowsForSort()) sortRowsBy(th, i);
+  }}));
 
 function rate(tr, s) {{
   const id = tr.dataset.id;
@@ -1691,7 +1724,7 @@ document.addEventListener('keydown', e => {{
   }}
 }});
 
-initState();
+const stateReady = initState();
 </script>
 </body>
 </html>
