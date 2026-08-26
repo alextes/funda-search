@@ -19,7 +19,7 @@
 
 ## Planned
 
-- [x] ~~Daily morning search~~ superseded: `server.py` checks for new listings every `fetch_interval_seconds` (currently two hours) while running
+- [x] ~~Daily morning search~~ superseded: `server.py` checks for new listings every `fetch_interval_seconds` (currently 15 minutes) while running
 - [x] Deployed to exe.dev: https://donut-chaise.exe.xyz (public); tooling in the private funda-search-deploy repo
 - [x] Status refresh (~hourly): sold/withdrawn listings drop out, under-offer listings get dimmed + "under offer" tag with a hide toggle (default on); price changes tracked too
 - [x] Password gate on the server (FUNDA_SEARCH_PASSWORD env, 30-day session cookie)

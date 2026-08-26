@@ -8,7 +8,7 @@
   },
   "pages": 3,
   "website_max_pages": 20,
-  "fetch_interval_seconds": 7200,
+  "fetch_interval_seconds": 900,
   "status_refresh_interval_seconds": 3600,
   "center": {
     "name": "Dam, Amsterdam",

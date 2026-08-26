@@ -2,7 +2,7 @@
 """Serve the overview and keep the listing data fresh.
 
 A background thread re-fetches whenever the last check is older than the
-configured interval (default two hours), so the list is always at most that old
+configured interval (default 15 minutes), so the list is always at most that old
 while the server runs; roughly hourly it also re-checks status/price of
 stored listings so sold / under-offer entries don't linger. The HTTP side
 serves the latest overview.html from disk (written atomically by
@@ -31,7 +31,7 @@ from urllib.parse import parse_qs
 
 import fetch as core
 
-DEFAULT_INTERVAL_S = 2 * 60 * 60
+DEFAULT_INTERVAL_S = 15 * 60
 DEFAULT_STATUS_INTERVAL_S = 3600
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 
