@@ -1218,7 +1218,10 @@ function applyFilters() {{
       || (hideSold.checked && isSold);
     tr.style.display = hide ? 'none' : '';
     const next = tr.nextElementSibling;
-    if (next && next.classList.contains('desc-row')) next.style.display = hide ? 'none' : '';
+    if (next && next.classList.contains('desc-row')) {{
+      if (hide) disposeFold(next);
+      else next.style.display = '';
+    }}
     if (!hide) visible++;
   }}
   document.getElementById('counts').textContent =
@@ -1233,7 +1236,7 @@ hideSold.addEventListener('change', applyFilters);
 const tableHeaders = [...document.querySelectorAll('#t th')];
 
 function sortRowsBy(th, i, toggle = true) {{
-  document.querySelectorAll('.desc-row').forEach(r => r.remove());
+  document.querySelectorAll('.desc-row').forEach(disposeFold);
   const rows = listingRows();
   let dir = th.dataset.dir;
   if (toggle) {{
@@ -1474,9 +1477,25 @@ function buildAnalysisPanel(id) {{
   return panel;
 }}
 
+function disposeFold(row) {{
+  if (!row?.classList.contains('desc-row')) return;
+  // Floorplanner embeds create WebGL contexts in a cross-origin document.
+  // Explicitly navigate and detach every iframe before dropping the fold so
+  // Chromium can release those contexts instead of retaining them until GC.
+  for (const frame of row.querySelectorAll('iframe')) {{
+    frame.src = 'about:blank';
+    frame.removeAttribute('src');
+    frame.remove();
+  }}
+  row.remove();
+}}
+
 function toggleFold(tr) {{
   const next = tr.nextElementSibling;
-  if (next && next.classList.contains('desc-row')) {{ next.remove(); return; }}
+  if (next && next.classList.contains('desc-row')) {{ disposeFold(next); return; }}
+  // Keep at most one expanded listing. Besides making the interaction clearer,
+  // this bounds the number of live Floorplanner/WebGL documents on the page.
+  document.querySelectorAll('.desc-row').forEach(disposeFold);
   const photos = (tr.dataset.photos || '').split(' ').filter(Boolean);
   const id = tr.dataset.id;
   const fps = JSON.parse(tr.dataset.fp || '[]');
@@ -1717,7 +1736,7 @@ document.addEventListener('keydown', e => {{
     case '1': case '2': case '3': if (sel) {{ rate(sel, +e.key); rated(); }} break;
     case 'Escape': {{
       const open = document.querySelector('.desc-row');
-      if (open) open.remove();
+      if (open) disposeFold(open);
       else select(null);
       break;
     }}

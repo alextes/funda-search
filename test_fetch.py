@@ -304,6 +304,11 @@ class PriceBandTests(unittest.TestCase):
         )
         self.assertIn("download brochure (PDF)", page)
         self.assertIn("trackingStatus === 'sold'", page)
+        self.assertIn("function disposeFold(row)", page)
+        self.assertIn("frame.src = 'about:blank'", page)
+        self.assertIn(
+            "document.querySelectorAll('.desc-row').forEach(disposeFold)", page
+        )
 
     def test_render_puts_only_first_128_rows_in_overview(self):
         listings = {
