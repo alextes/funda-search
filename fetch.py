@@ -758,8 +758,9 @@ def render_map(config: dict, rows: list[dict]) -> None:
   .controls { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem 1rem; margin-top: .7rem; font-size: .8rem; }
   .control { display: grid; gap: .2rem; color: #555; }
   .control span { font-size: .7rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
-  select, button { min-height: 2rem; border: 1px solid #bbb; border-radius: 4px; background: #fff; color: #333;
-                   padding: .3rem .55rem; font: inherit; }
+  select, button, input[type="search"] { min-height: 2rem; border: 1px solid #bbb; border-radius: 4px; background: #fff; color: #333;
+                                          padding: .3rem .55rem; font: inherit; }
+  input[type="search"] { width: 16rem; }
   button { cursor: pointer; }
   button:hover { border-color: #f7a100; color: #9b6200; }
   label.check { display: flex; align-items: center; gap: .3rem; min-height: 2rem; cursor: pointer; white-space: nowrap; }
@@ -800,6 +801,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
     <nav class="views" aria-label="View"><a href="overview.html">table</a><a href="map.html" class="active">map</a></nav>
   </div>
   <div class="controls">
+    <label class="control"><span>Search</span><input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
     <label class="control"><span>Listings</span><select id="scope">
       <option value="128">128 most recent</option><option value="all">all</option>
     </select></label>
@@ -829,6 +831,7 @@ const listings = JSON.parse(document.getElementById('listingData').textContent);
 const totalListingCount = __TOTAL__;
 const missingCoordinateCount = __MISSING__;
 const controls = {
+  search: document.getElementById('search'),
   scope: document.getElementById('scope'),
   minScore: document.getElementById('minScore'),
   tracking: document.getElementById('tracking'),
@@ -856,6 +859,10 @@ function matches(listing) {
   const score = scoreFor(listing);
   const tracking = trackingFor(listing);
   const minScore = controls.minScore.value;
+  const query = controls.search.value.trim().toLocaleLowerCase('nl-NL');
+  const searchable = [listing.title, listing.district, listing.neighbourhood]
+    .filter(Boolean).join(' ').toLocaleLowerCase('nl-NL');
+  if (query && !searchable.includes(query)) return false;
   if (controls.hideRated.checked && score !== null) return false;
   if (controls.hideNo.checked && score === 0) return false;
   if (minScore && (score === null || score < Number(minScore))) return false;
@@ -949,6 +956,7 @@ async function loadSharedState() {
 }
 
 function resetFilters() {
+  controls.search.value = '';
   controls.scope.value = '128';
   controls.minScore.value = '';
   controls.tracking.value = '';
@@ -987,6 +995,11 @@ async function start() {
 for (const control of [controls.scope, controls.hideNo, controls.hideUO, controls.hideSold]) {
   control.addEventListener('change', () => renderMarkers(false));
 }
+let searchTimer;
+controls.search.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => renderMarkers(false), 120);
+});
 controls.minScore.addEventListener('change', () => {
   if (controls.minScore.value) controls.hideRated.checked = false;
   renderMarkers(false);
@@ -1120,8 +1133,13 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         ppm2 = format_euros(l["price_per_m2"]) if l.get("price_per_m2") else "–"
         desc = html.escape(l.get("description") or "")
         photo_urls = " ".join(l.get("photo_urls") or [])
+        search_text = " ".join(
+            str(value)
+            for value in (l.get("title"), l.get("wijk"), l.get("neighbourhood"))
+            if value
+        ).lower()
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
+            f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
@@ -1185,8 +1203,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .views a {{ padding: .3rem .6rem; border: 1px solid #ccc; border-radius: 4px; color: #555;
               text-decoration: none; font-size: .82rem; background: #fff; }}
   .views a.active {{ color: #fff; border-color: #0071b3; background: #0071b3; }}
-  .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; gap: 1.2rem; align-items: center; color: #333; }}
+  .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; align-items: center; color: #333; }}
   .controls label {{ cursor: pointer; user-select: none; }}
+  .controls .search-field {{ display: flex; align-items: center; gap: .45rem; cursor: default; }}
+  .controls input[type="search"] {{ width: 18rem; min-height: 2rem; border: 1px solid #bbb; border-radius: 4px;
+                                     padding: .3rem .55rem; color: #333; background: #fff; font: inherit; }}
   table {{ border-collapse: collapse; width: 100%; font-size: .82rem; }}
   th, td {{ text-align: left; padding: .4rem .45rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
   th {{ cursor: pointer; user-select: none; position: sticky; top: 0; background: #fff; }}
@@ -1290,6 +1311,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <p class="meta" id="statusLegend"><strong>Status:</strong> call · viewing requested · viewing planned · viewed · bid · sold · bought</p>
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
+  <label class="search-field">Search <input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
   <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
@@ -1338,6 +1360,7 @@ const hideRated = document.getElementById('hideRated');
 const hideNo = document.getElementById('hideNo');
 const hideUO = document.getElementById('hideUO');
 const hideSold = document.getElementById('hideSold');
+const search = document.getElementById('search');
 
 // ratings and personal tracking statuses live on the server (shared across
 // browsers/people); localStorage is the fallback for a statically opened page
@@ -1455,13 +1478,14 @@ const loadMoreWrap = document.getElementById('loadMoreWrap');
 const loadMoreButton = document.getElementById('loadMore');
 const loadProgress = document.getElementById('loadProgress');
 let rowLoadPromise = null;
-let loadingAllForSort = false;
+let allRowsPromise = null;
+let loadingAllReason = '';
 
 function updateLoadMore() {{
   const loaded = listingRows().length;
   const remaining = Math.max(0, totalListingCount - loaded);
-  loadProgress.textContent = loadingAllForSort
-    ? `loading all ${{totalListingCount}} listings for sorting…`
+  loadProgress.textContent = loadingAllReason
+    ? `loading all ${{totalListingCount}} listings for ${{loadingAllReason}}…`
     : `${{loaded}} of ${{totalListingCount}} loaded`;
   if (nextRowBatch > rowBatchCount || !remaining) {{
     loadMoreButton.hidden = true;
@@ -1469,8 +1493,8 @@ function updateLoadMore() {{
   }}
   loadMoreWrap.hidden = false;
   loadMoreButton.hidden = false;
-  loadMoreButton.disabled = loadingAllForSort;
-  loadMoreButton.textContent = loadingAllForSort
+  loadMoreButton.disabled = Boolean(loadingAllReason);
+  loadMoreButton.textContent = loadingAllReason
     ? 'loading…'
     : `load ${{Math.min(rowBatchSize, remaining)}} more`;
 }}
@@ -1529,6 +1553,7 @@ function applyTrackingStatuses() {{
 
 function applyFilters() {{
   let visible = 0, rated = 0, tracked = 0, sold = 0;
+  const query = search.value.trim().toLocaleLowerCase('nl-NL');
   document.body.classList.toggle('hide-sold', hideSold.checked);
   for (const tr of listingRows()) {{
     const s = ratings[tr.dataset.id];
@@ -1540,7 +1565,8 @@ function applyFilters() {{
     if (isSold) sold++;
     const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
       || (hideUO.checked && tr.dataset.status === 'negotiations')
-      || (hideSold.checked && isSold);
+      || (hideSold.checked && isSold)
+      || (query && !tr.dataset.search.includes(query));
     tr.style.display = hide ? 'none' : '';
     const next = tr.nextElementSibling;
     if (next && next.classList.contains('desc-row')) {{
@@ -1587,26 +1613,41 @@ function reapplyActiveSort() {{
   if (index !== -1) sortRowsBy(tableHeaders[index], index, false);
 }}
 
-async function loadAllRowsForSort() {{
+async function loadAllRows(reason) {{
   if (listingRows().length >= totalListingCount) return true;
-  loadingAllForSort = true;
+  if (allRowsPromise) return allRowsPromise;
+  loadingAllReason = reason;
   updateLoadMore();
-  while (nextRowBatch <= rowBatchCount) {{
-    if (!await loadMoreRows(false)) {{
-      loadingAllForSort = false;
-      updateLoadMore();
-      return false;
+  allRowsPromise = (async () => {{
+    while (nextRowBatch <= rowBatchCount) {{
+      if (!await loadMoreRows(false)) return false;
     }}
+    return listingRows().length === totalListingCount;
+  }})();
+  try {{
+    return await allRowsPromise;
+  }} finally {{
+    loadingAllReason = '';
+    allRowsPromise = null;
+    updateLoadMore();
   }}
-  loadingAllForSort = false;
-  updateLoadMore();
-  return listingRows().length === totalListingCount;
 }}
+
+let tableSearchTimer;
+search.addEventListener('input', () => {{
+  clearTimeout(tableSearchTimer);
+  applyFilters();
+  if (!search.value.trim()) return;
+  tableSearchTimer = setTimeout(async () => {{
+    await stateReady;
+    if (await loadAllRows('searching')) applyFilters();
+  }}, 150);
+}});
 
 tableHeaders.forEach((th, i) =>
   th.addEventListener('click', async () => {{
     await stateReady;
-    if (await loadAllRowsForSort()) sortRowsBy(th, i);
+    if (await loadAllRows('sorting')) sortRowsBy(th, i);
   }}));
 
 function rate(tr, s) {{
