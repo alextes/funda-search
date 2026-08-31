@@ -4,8 +4,8 @@
 Uses pyfunda for listing details and its search API when available. If Funda's
 search API rejects anonymous requests, discovery falls back to the public
 server-rendered search page. State lives in data/listings.json; every run only
-fetches details for listings we haven't seen before, then regenerates
-overview.html.
+fetches details for listings we haven't seen before, then regenerates the
+table and map views.
 """
 
 from __future__ import annotations
@@ -71,6 +71,10 @@ FUNDA_BROCHURE_URL = re.compile(
 )
 WEBSITE_PAGE_SIZE = 15
 WEBSITE_MAX_PAGES = 20
+
+
+def map_path() -> Path:
+    return ROOT / "map.html"
 
 
 class _ListingLinkParser(HTMLParser):
@@ -697,6 +701,320 @@ def backfill_floorplans(listings: dict[str, dict]) -> None:
             time.sleep(DETAIL_FETCH_DELAY_S)
 
 
+def render_map(config: dict, rows: list[dict]) -> None:
+    """Render the lightweight, filterable map view from the overview dataset."""
+    map_listings = []
+    missing_coordinates = 0
+    for listing in rows:
+        lat, lon = listing.get("lat"), listing.get("lon")
+        if lat is None or lon is None:
+            missing_coordinates += 1
+            continue
+        map_listings.append(
+            {
+                "id": str(listing["id"]),
+                "title": listing.get("title") or "?",
+                "url": listing.get("url") or "",
+                "photo": listing.get("photo_url") or "",
+                "lat": lat,
+                "lon": lon,
+                "price": listing.get("price"),
+                "area": listing.get("living_area"),
+                "price_per_m2": listing.get("price_per_m2"),
+                "rooms": listing.get("rooms"),
+                "energy": listing.get("energy_label"),
+                "district": listing.get("wijk"),
+                "neighbourhood": listing.get("neighbourhood"),
+                "market_status": listing.get("status") or "",
+                "market_gone": listing.get("status") in GONE_STATUSES,
+                "date": listing.get("publication_date") or listing.get("first_seen") or "",
+            }
+        )
+
+    listing_json = json.dumps(
+        map_listings, ensure_ascii=False, separators=(",", ":")
+    ).replace("<", "\\u003c")
+    location = html.escape(config.get("location") or "Amsterdam")
+    page = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>funda-search · __LOCATION__ map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; grid-template-rows: auto minmax(22rem, 1fr); background: #f6f6f4; }
+  header { position: relative; z-index: 1000; padding: .85rem 1.15rem .75rem; background: rgba(255,255,255,.97);
+           border-bottom: 1px solid #ddd; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+  .topline { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  h1 { margin: 0; font-size: 1.25rem; }
+  .views { display: flex; gap: .25rem; }
+  .views a { padding: .3rem .6rem; border: 1px solid #ccc; border-radius: 4px; color: #555; text-decoration: none;
+             font-size: .82rem; background: #fff; }
+  .views a.active { color: #fff; border-color: #0071b3; background: #0071b3; }
+  .controls { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem 1rem; margin-top: .7rem; font-size: .8rem; }
+  .control { display: grid; gap: .2rem; color: #555; }
+  .control span { font-size: .7rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+  select, button { min-height: 2rem; border: 1px solid #bbb; border-radius: 4px; background: #fff; color: #333;
+                   padding: .3rem .55rem; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: #f7a100; color: #9b6200; }
+  label.check { display: flex; align-items: center; gap: .3rem; min-height: 2rem; cursor: pointer; white-space: nowrap; }
+  #summary { margin-left: auto; min-height: 2rem; display: flex; align-items: center; color: #666; white-space: nowrap; }
+  #map { width: 100%; height: 100%; background: #dce5e9; }
+  #mapError { position: fixed; left: 50%; top: 55%; z-index: 1100; transform: translate(-50%,-50%); max-width: 30rem;
+              padding: .8rem 1rem; border: 1px solid #c77; border-radius: 6px; color: #7a2020; background: #fff; }
+  #mapError[hidden] { display: none; }
+  .legend { display: flex; align-items: center; gap: .35rem; padding: .35rem .45rem; border-radius: 4px;
+            background: rgba(255,255,255,.94); box-shadow: 0 1px 5px rgba(0,0,0,.2); color: #555; font-size: .72rem; }
+  .legend .dot { width: .85rem; height: .85rem; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #777; }
+  .listing-marker { display: grid; place-items: center; width: 28px !important; height: 28px !important; margin: -14px 0 0 -14px !important;
+                    border: 2px solid #fff; border-radius: 50%; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.55);
+                    font: 700 12px/1 -apple-system, sans-serif; }
+  .score-u { background: #0071b3; }
+  .score-0 { background: #777; }
+  .score-1 { background: #8b9aa5; }
+  .score-2 { background: #e28a00; }
+  .score-3 { background: #2d8a4e; }
+  .listing-marker.tracked { box-shadow: 0 0 0 3px #222, 0 2px 6px rgba(0,0,0,.45); }
+  .popup { width: 15rem; }
+  .popup img { width: 100%; height: 8rem; object-fit: cover; border-radius: 4px; margin-bottom: .45rem; background: #eee; }
+  .popup h2 { margin: 0 0 .3rem; font-size: 1rem; }
+  .popup .meta { color: #555; line-height: 1.45; }
+  .popup .status { margin-top: .35rem; color: #333; font-weight: 600; }
+  .popup a { display: inline-block; margin-top: .55rem; color: #0071b3; }
+  @media (max-width: 800px) {
+    header { padding: .7rem; }
+    .controls { gap: .45rem .7rem; }
+    #summary { width: 100%; margin-left: 0; min-height: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="topline">
+    <h1>funda-search · __LOCATION__</h1>
+    <nav class="views" aria-label="View"><a href="overview.html">table</a><a href="map.html" class="active">map</a></nav>
+  </div>
+  <div class="controls">
+    <label class="control"><span>Listings</span><select id="scope">
+      <option value="128">128 most recent</option><option value="all">all</option>
+    </select></label>
+    <label class="control"><span>Minimum score</span><select id="minScore">
+      <option value="">any</option><option value="1">1+</option><option value="2">2+</option><option value="3">3 only</option>
+    </select></label>
+    <label class="control"><span>Tracking status</span><select id="tracking">
+      <option value="">any</option><option value="untracked">untracked</option><option value="call">call</option>
+      <option value="viewing_requested">viewing requested</option><option value="viewing_planned">viewing planned</option>
+      <option value="viewed">viewed</option><option value="bid">bid</option><option value="sold">sold</option><option value="bought">bought</option>
+    </select></label>
+    <label class="check"><input type="checkbox" id="hideRated"> hide rated</label>
+    <label class="check"><input type="checkbox" id="hideNo" checked> hide not interesting</label>
+    <label class="check"><input type="checkbox" id="hideUO" checked> hide under offer</label>
+    <label class="check"><input type="checkbox" id="hideSold" checked> hide sold</label>
+    <button type="button" id="fit">fit markers</button>
+    <button type="button" id="reset">reset</button>
+    <span id="summary"></span>
+  </div>
+</header>
+<div id="map" role="application" aria-label="Map of Amsterdam listings"></div>
+<div id="mapError" hidden></div>
+<script id="listingData" type="application/json">__LISTINGS__</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const listings = JSON.parse(document.getElementById('listingData').textContent);
+const totalListingCount = __TOTAL__;
+const missingCoordinateCount = __MISSING__;
+const controls = {
+  scope: document.getElementById('scope'),
+  minScore: document.getElementById('minScore'),
+  tracking: document.getElementById('tracking'),
+  hideRated: document.getElementById('hideRated'),
+  hideNo: document.getElementById('hideNo'),
+  hideUO: document.getElementById('hideUO'),
+  hideSold: document.getElementById('hideSold'),
+};
+let ratings = {};
+let trackingStatuses = {};
+let map;
+let markerLayer;
+
+function euro(value) {
+  return value === null || value === undefined ? '–' : `€ ${Number(value).toLocaleString('nl-NL')}`;
+}
+
+function scoreFor(listing) {
+  return Object.prototype.hasOwnProperty.call(ratings, listing.id) ? Number(ratings[listing.id]) : null;
+}
+
+function trackingFor(listing) { return trackingStatuses[listing.id] || ''; }
+
+function matches(listing) {
+  const score = scoreFor(listing);
+  const tracking = trackingFor(listing);
+  const minScore = controls.minScore.value;
+  if (controls.hideRated.checked && score !== null) return false;
+  if (controls.hideNo.checked && score === 0) return false;
+  if (minScore && (score === null || score < Number(minScore))) return false;
+  if (controls.hideUO.checked && listing.market_status === 'negotiations') return false;
+  const sold = tracking === 'sold' || (listing.market_gone && tracking !== 'bought');
+  if (controls.hideSold.checked && sold) return false;
+  if (controls.tracking.value === 'untracked' && tracking) return false;
+  if (controls.tracking.value && controls.tracking.value !== 'untracked' && tracking !== controls.tracking.value) return false;
+  return true;
+}
+
+function popupFor(listing) {
+  const root = document.createElement('div');
+  root.className = 'popup';
+  if (listing.photo) {
+    const image = document.createElement('img');
+    image.loading = 'lazy';
+    image.src = listing.photo;
+    image.alt = '';
+    root.append(image);
+  }
+  const title = document.createElement('h2');
+  title.textContent = listing.title;
+  root.append(title);
+  const facts = [euro(listing.price)];
+  if (listing.area) facts.push(`${listing.area} m²`);
+  if (listing.price_per_m2) facts.push(`${euro(listing.price_per_m2)}/m²`);
+  if (listing.energy) facts.push(`energy ${listing.energy}`);
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = facts.join(' · ');
+  root.append(meta);
+  const place = document.createElement('div');
+  place.className = 'meta';
+  place.textContent = [listing.district, listing.neighbourhood].filter(Boolean).join(' · ');
+  root.append(place);
+  const score = scoreFor(listing);
+  const tracking = trackingFor(listing);
+  const status = document.createElement('div');
+  status.className = 'status';
+  status.textContent = `score ${score === null ? 'unrated' : score}${tracking ? ` · ${tracking.replaceAll('_', ' ')}` : ''}`;
+  root.append(status);
+  const link = document.createElement('a');
+  link.href = listing.url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = 'open on Funda';
+  root.append(link);
+  return root;
+}
+
+function markerFor(listing) {
+  const score = scoreFor(listing);
+  const tracking = trackingFor(listing);
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="listing-marker score-${score === null ? 'u' : score}${tracking ? ' tracked' : ''}">${score === null ? '·' : score}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -12],
+  });
+  return L.marker([listing.lat, listing.lon], {icon, title: listing.title}).bindPopup(() => popupFor(listing), {maxWidth: 260});
+}
+
+function selectedListings() {
+  const filtered = listings.filter(matches);
+  return controls.scope.value === '128' ? filtered.slice(0, 128) : filtered;
+}
+
+function renderMarkers(fit = false) {
+  if (!markerLayer) return;
+  markerLayer.clearLayers();
+  const selected = selectedListings();
+  for (const listing of selected) markerLayer.addLayer(markerFor(listing));
+  document.getElementById('summary').textContent =
+    `${selected.length} shown · ${listings.length} geocoded · ${missingCoordinateCount} without coordinates`;
+  if (fit && selected.length) map.fitBounds(markerLayer.getBounds().pad(.12), {maxZoom: 14});
+}
+
+async function loadSharedState() {
+  const localRatings = JSON.parse(localStorage.getItem('funda-ratings') || '{}');
+  const localTracking = JSON.parse(localStorage.getItem('funda-tracking-statuses') || '{}');
+  try {
+    const response = await fetch('ratings.json', {cache: 'no-store'});
+    ratings = response.ok ? await response.json() : localRatings;
+  } catch { ratings = localRatings; }
+  try {
+    const response = await fetch('tracking-statuses.json', {cache: 'no-store'});
+    trackingStatuses = response.ok ? await response.json() : localTracking;
+  } catch { trackingStatuses = localTracking; }
+}
+
+function resetFilters() {
+  controls.scope.value = '128';
+  controls.minScore.value = '';
+  controls.tracking.value = '';
+  controls.hideRated.checked = false;
+  controls.hideNo.checked = true;
+  controls.hideUO.checked = true;
+  controls.hideSold.checked = true;
+  renderMarkers(false);
+  map.setView([52.3676, 4.9041], 12);
+}
+
+async function start() {
+  if (typeof L === 'undefined') {
+    const error = document.getElementById('mapError');
+    error.textContent = 'The map library could not be loaded. Check the network connection and reload.';
+    error.hidden = false;
+    return;
+  }
+  map = L.map('map', {preferCanvas: true}).setView([52.3676, 4.9041], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+  markerLayer = L.featureGroup().addTo(map);
+  const legend = L.control({position: 'bottomleft'});
+  legend.onAdd = () => {
+    const node = L.DomUtil.create('div', 'legend');
+    node.innerHTML = '<span class="dot score-u"></span>unrated <span class="dot score-0"></span>0 <span class="dot score-1"></span>1 <span class="dot score-2"></span>2 <span class="dot score-3"></span>3';
+    return node;
+  };
+  legend.addTo(map);
+  await loadSharedState();
+  renderMarkers(false);
+}
+
+for (const control of [controls.scope, controls.hideNo, controls.hideUO, controls.hideSold]) {
+  control.addEventListener('change', () => renderMarkers(false));
+}
+controls.minScore.addEventListener('change', () => {
+  if (controls.minScore.value) controls.hideRated.checked = false;
+  renderMarkers(false);
+});
+controls.hideRated.addEventListener('change', () => {
+  if (controls.hideRated.checked) controls.minScore.value = '';
+  renderMarkers(false);
+});
+controls.tracking.addEventListener('change', () => {
+  if (controls.tracking.value === 'sold') controls.hideSold.checked = false;
+  renderMarkers(false);
+});
+document.getElementById('fit').addEventListener('click', () => renderMarkers(true));
+document.getElementById('reset').addEventListener('click', resetFilters);
+start();
+</script>
+</body>
+</html>
+"""
+    page = (
+        page.replace("__LOCATION__", location)
+        .replace("__LISTINGS__", listing_json)
+        .replace("__TOTAL__", str(len(rows)))
+        .replace("__MISSING__", str(missing_coordinates))
+    )
+    write_atomic(map_path(), page)
+
+
 def render(config: dict, listings: dict[str, dict]) -> None:
     bands = load_price_bands()
     filters = config.get("filters", {})
@@ -862,6 +1180,11 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   :root {{ font-family: -apple-system, system-ui, sans-serif; }}
   body {{ margin: 1.25rem; color: #1a1a1a; }}
   h1 {{ font-size: 1.3rem; }} .meta {{ color: #666; font-size: .85rem; }}
+  .page-head {{ display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }}
+  .views {{ display: flex; gap: .25rem; }}
+  .views a {{ padding: .3rem .6rem; border: 1px solid #ccc; border-radius: 4px; color: #555;
+              text-decoration: none; font-size: .82rem; background: #fff; }}
+  .views a.active {{ color: #fff; border-color: #0071b3; background: #0071b3; }}
   .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; gap: 1.2rem; align-items: center; color: #333; }}
   .controls label {{ cursor: pointer; user-select: none; }}
   table {{ border-collapse: collapse; width: 100%; font-size: .82rem; }}
@@ -959,7 +1282,9 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </style>
 </head>
 <body class="hide-sold">
-<h1>funda-search · {html.escape(config['location'])}</h1>
+<div class="page-head"><h1>funda-search · {html.escape(config['location'])}</h1>
+  <nav class="views" aria-label="View"><a href="overview.html" class="active">table</a><a href="map.html">map</a></nav>
+</div>
 <p class="meta">{len(rows)} listings · {len(initial_body_rows)} loaded initially · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
 <p class="meta" id="statusLegend"><strong>Status:</strong> call · viewing requested · viewing planned · viewed · bid · sold · bought</p>
@@ -1749,13 +2074,17 @@ const stateReady = initState();
 </html>
 """
     write_atomic(OVERVIEW_FILE, page)
-    print(f"wrote {OVERVIEW_FILE.relative_to(ROOT)} with {len(rows)} listings")
+    render_map(config, rows)
+    print(
+        f"wrote {OVERVIEW_FILE.relative_to(ROOT)} and {map_path().relative_to(ROOT)} "
+        f"with {len(rows)} listings"
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--render-only", action="store_true", help="regenerate overview.html without fetching"
+        "--render-only", action="store_true", help="regenerate table and map without fetching"
     )
     parser.add_argument(
         "--backfill-floorplans",

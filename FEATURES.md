@@ -16,6 +16,7 @@
 - [x] `j`/`k` (or `↓`/`↑`) smooth-scroll the photo grid
 - [x] "Not a floor plan" flag on detected plans: hover button hides misfires (with undo), stored server-side (`data/fp_flags.json`) — doubles as a labeled mistake-set for tuning the detector later
 - [x] Price band filter (config `min_price`/`max_price`, applied to search and render)
+- [x] Second map view with score, recency, tracking-status, and market-status filters
 
 ## Planned
 

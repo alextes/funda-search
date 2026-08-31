@@ -7,3 +7,4 @@ data/listing_analyses.json
 data/analysis_requests.json
 data/.session-secret
 *.tmp
+map.html

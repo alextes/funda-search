@@ -5,9 +5,8 @@ A background thread re-fetches whenever the last check is older than the
 configured interval (default 15 minutes), so the list is always at most that old
 while the server runs; roughly hourly it also re-checks status/price of
 stored listings so sold / under-offer entries don't linger. The HTTP side
-serves the latest overview.html from disk (written atomically by
-fetch.render) and small ratings/tracking APIs shared by everyone using the
-page.
+serves the latest table and map pages from disk (written atomically by
+fetch.render) and small ratings/tracking APIs shared by everyone using them.
 
 If FUNDA_SEARCH_PASSWORD is set, everything except /healthz sits behind a
 login form; the session cookie lasts 30 days.
@@ -288,6 +287,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(503, "text/plain", b"no overview yet, first fetch still running")
                 return
             self.respond(200, "text/html; charset=utf-8", core.OVERVIEW_FILE.read_bytes())
+        elif path in ("/map", "/map.html"):
+            map_file = core.map_path()
+            if not map_file.exists():
+                self.respond(503, "text/plain", b"no map yet, first fetch still running")
+                return
+            self.respond(200, "text/html; charset=utf-8", map_file.read_bytes())
         elif row_batch_match:
             batch_file = core.row_batch_path(int(row_batch_match.group(1)))
             if not batch_file.exists():

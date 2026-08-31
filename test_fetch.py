@@ -267,6 +267,7 @@ class PriceBandTests(unittest.TestCase):
                     {"1": listing},
                 )
             page = output.read_text()
+            map_page = (Path(directory) / "map.html").read_text()
 
         self.assertIn("2025 band", page)
         self.assertIn("€ 5.848–6.683/m²", page)
@@ -309,6 +310,13 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn(
             "document.querySelectorAll('.desc-row').forEach(disposeFold)", page
         )
+        self.assertIn('<a href="map.html">map</a>', page)
+        self.assertIn('id="scope"', map_page)
+        self.assertIn('id="minScore"', map_page)
+        self.assertIn('id="hideRated"', map_page)
+        self.assertIn('id="tracking"', map_page)
+        self.assertIn("filtered.slice(0, 128)", map_page)
+        self.assertIn('"title":"Example 1"', map_page)
 
     def test_render_puts_only_first_128_rows_in_overview(self):
         listings = {
@@ -339,6 +347,7 @@ class PriceBandTests(unittest.TestCase):
                 batch = fetch.row_batch_path(1).read_text()
 
             page = output.read_text()
+            map_page = (root / "map.html").read_text()
             self.assertEqual(page.count("<tr data-id="), 128)
             self.assertEqual(batch.count("<tr data-id="), 2)
             self.assertIn("const totalListingCount = 130", page)
@@ -347,6 +356,7 @@ class PriceBandTests(unittest.TestCase):
             self.assertIn("async function loadAllRowsForSort()", page)
             self.assertIn("if (await loadAllRowsForSort()) sortRowsBy(th, i)", page)
             self.assertIn("const stateReady = initState()", page)
+            self.assertIn("const totalListingCount = 130", map_page)
             self.assertFalse(stale_batch.exists())
 
 
