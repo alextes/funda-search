@@ -813,6 +813,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
       <option value="viewing_requested">viewing requested</option><option value="viewing_planned">viewing planned</option>
       <option value="viewed">viewed</option><option value="bid">bid</option><option value="sold">sold</option><option value="bought">bought</option>
     </select></label>
+    <label class="check" title="Default range is €500k–€750k"><input type="checkbox" id="widerPrice"> wider €400k–€850k</label>
     <label class="check"><input type="checkbox" id="hideRated"> hide rated</label>
     <label class="check"><input type="checkbox" id="hideNo" checked> hide not interesting</label>
     <label class="check"><input type="checkbox" id="hideUO" checked> hide under offer</label>
@@ -835,6 +836,7 @@ const controls = {
   scope: document.getElementById('scope'),
   minScore: document.getElementById('minScore'),
   tracking: document.getElementById('tracking'),
+  widerPrice: document.getElementById('widerPrice'),
   hideRated: document.getElementById('hideRated'),
   hideNo: document.getElementById('hideNo'),
   hideUO: document.getElementById('hideUO'),
@@ -863,6 +865,8 @@ function matches(listing) {
   const searchable = [listing.title, listing.district, listing.neighbourhood]
     .filter(Boolean).join(' ').toLocaleLowerCase('nl-NL');
   if (query && !searchable.includes(query)) return false;
+  if (!controls.widerPrice.checked
+      && (!listing.price || listing.price < 500000 || listing.price > 750000)) return false;
   if (controls.hideRated.checked && score !== null) return false;
   if (controls.hideNo.checked && score === 0) return false;
   if (minScore && (score === null || score < Number(minScore))) return false;
@@ -960,6 +964,7 @@ function resetFilters() {
   controls.scope.value = '128';
   controls.minScore.value = '';
   controls.tracking.value = '';
+  controls.widerPrice.checked = false;
   controls.hideRated.checked = false;
   controls.hideNo.checked = true;
   controls.hideUO.checked = true;
@@ -992,7 +997,7 @@ async function start() {
   renderMarkers(false);
 }
 
-for (const control of [controls.scope, controls.hideNo, controls.hideUO, controls.hideSold]) {
+for (const control of [controls.scope, controls.widerPrice, controls.hideNo, controls.hideUO, controls.hideSold]) {
   control.addEventListener('change', () => renderMarkers(false));
 }
 let searchTimer;
@@ -1139,7 +1144,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
             if value
         ).lower()
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
+            f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-district="{html.escape(l.get('wijk') or '')}" data-price="{l.get('price') or 0}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
   <td class="photo">{photo}</td>
   <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
@@ -1188,6 +1193,14 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         if stale_batch not in active_batch_files:
             stale_batch.unlink()
 
+    districts = sorted(
+        {str(listing.get("wijk")) for listing in rows if listing.get("wijk")},
+        key=str.casefold,
+    )
+    district_json = json.dumps(districts, ensure_ascii=False, separators=(",", ":")).replace(
+        "<", "\\u003c"
+    )
+
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1203,11 +1216,24 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .views a {{ padding: .3rem .6rem; border: 1px solid #ccc; border-radius: 4px; color: #555;
               text-decoration: none; font-size: .82rem; background: #fff; }}
   .views a.active {{ color: #fff; border-color: #0071b3; background: #0071b3; }}
-  .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; align-items: center; color: #333; }}
+  .controls {{ margin: .6rem 0 1rem; font-size: .85rem; display: flex; flex-wrap: wrap; gap: .7rem .8rem; align-items: center; color: #333; }}
   .controls label {{ cursor: pointer; user-select: none; }}
   .controls .search-field {{ display: flex; align-items: center; gap: .45rem; cursor: default; }}
-  .controls input[type="search"] {{ width: 18rem; min-height: 2rem; border: 1px solid #bbb; border-radius: 4px;
+  .controls input[type="search"] {{ width: 16rem; min-height: 2rem; border: 1px solid #bbb; border-radius: 4px;
                                      padding: .3rem .55rem; color: #333; background: #fff; font: inherit; }}
+  .district-filter {{ position: relative; }}
+  .district-filter > summary {{ min-height: 2rem; display: flex; align-items: center; border: 1px solid #bbb; border-radius: 4px;
+                                padding: .3rem .55rem; background: #fff; cursor: pointer; user-select: none; list-style: none; }}
+  .district-filter > summary::-webkit-details-marker {{ display: none; }}
+  .district-filter > summary::after {{ content: '▾'; margin-left: .45rem; color: #777; }}
+  .district-filter[open] > summary {{ border-color: #f7a100; }}
+  .district-menu {{ position: absolute; top: calc(100% + .3rem); left: 0; z-index: 6; width: 18rem; max-height: 24rem; overflow: auto;
+                    padding: .65rem; border: 1px solid #bbb; border-radius: 5px; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.18); }}
+  .district-menu strong {{ display: block; margin-bottom: .4rem; font-size: .78rem; }}
+  .district-options {{ display: grid; gap: .25rem; }}
+  .district-options label {{ display: flex; gap: .4rem; align-items: baseline; cursor: pointer; }}
+  .district-menu button {{ margin-top: .65rem; border: 1px solid #bbb; border-radius: 4px; padding: .3rem .5rem;
+                           background: #fff; color: #555; cursor: pointer; font: inherit; }}
   table {{ border-collapse: collapse; width: 100%; font-size: .82rem; }}
   th, td {{ text-align: left; padding: .4rem .45rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }}
   th {{ cursor: pointer; user-select: none; position: sticky; top: 0; background: #fff; }}
@@ -1312,6 +1338,15 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <p class="meta">keys: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> move · <kbd>enter</kbd> fold · <kbd>p</kbd> photos · <kbd>x</kbd>/<kbd>0</kbd>–<kbd>3</kbd> rate · <kbd>f</kbd> open funda · <kbd>esc</kbd> close</p>
 <div class="controls">
   <label class="search-field">Search <input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
+  <label title="Default range is €500k–€750k"><input type="checkbox" id="widerPrice"> wider €400k–€850k</label>
+  <details class="district-filter">
+    <summary id="districtSummary">districts</summary>
+    <div class="district-menu">
+      <strong>Hide districts</strong>
+      <div class="district-options" id="districtOptions"></div>
+      <button type="button" id="clearDistricts">show all districts</button>
+    </div>
+  </details>
   <label><input type="checkbox" id="hideRated"> hide rated</label>
   <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
   <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
@@ -1361,6 +1396,49 @@ const hideNo = document.getElementById('hideNo');
 const hideUO = document.getElementById('hideUO');
 const hideSold = document.getElementById('hideSold');
 const search = document.getElementById('search');
+const widerPrice = document.getElementById('widerPrice');
+const availableDistricts = {district_json};
+const districtOptions = document.getElementById('districtOptions');
+const districtSummary = document.getElementById('districtSummary');
+const DISTRICT_STORAGE_KEY = 'funda-hidden-districts';
+let excludedDistricts = new Set();
+try {{
+  const storedDistricts = JSON.parse(localStorage.getItem(DISTRICT_STORAGE_KEY) || '[]');
+  excludedDistricts = new Set(storedDistricts.filter(district => availableDistricts.includes(district)));
+}} catch (error) {{}}
+
+function updateDistrictSummary() {{
+  const count = excludedDistricts.size;
+  districtSummary.textContent = count ? `districts (${{count}} hidden)` : 'districts';
+}}
+
+function saveExcludedDistricts() {{
+  localStorage.setItem(DISTRICT_STORAGE_KEY, JSON.stringify([...excludedDistricts]));
+  updateDistrictSummary();
+}}
+
+for (const district of availableDistricts) {{
+  const label = document.createElement('label');
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.value = district;
+  input.checked = excludedDistricts.has(district);
+  input.addEventListener('change', () => {{
+    if (input.checked) excludedDistricts.add(district);
+    else excludedDistricts.delete(district);
+    saveExcludedDistricts();
+    applyFilters();
+  }});
+  label.append(input, document.createTextNode(district));
+  districtOptions.append(label);
+}}
+document.getElementById('clearDistricts').addEventListener('click', () => {{
+  excludedDistricts.clear();
+  for (const input of districtOptions.querySelectorAll('input')) input.checked = false;
+  saveExcludedDistricts();
+  applyFilters();
+}});
+updateDistrictSummary();
 
 // ratings and personal tracking statuses live on the server (shared across
 // browsers/people); localStorage is the fallback for a statically opened page
@@ -1563,7 +1641,10 @@ function applyFilters() {{
     const isSold = trackingStatus === 'sold'
       || (tr.dataset.marketGone === '1' && trackingStatus !== 'bought');
     if (isSold) sold++;
-    const hide = (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
+    const price = Number(tr.dataset.price);
+    const hide = (!widerPrice.checked && (!price || price < 500000 || price > 750000))
+      || excludedDistricts.has(tr.dataset.district)
+      || (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
       || (hideUO.checked && tr.dataset.status === 'negotiations')
       || (hideSold.checked && isSold)
       || (query && !tr.dataset.search.includes(query));
@@ -1583,6 +1664,7 @@ hideRated.addEventListener('change', applyFilters);
 hideNo.addEventListener('change', applyFilters);
 hideUO.addEventListener('change', applyFilters);
 hideSold.addEventListener('change', applyFilters);
+widerPrice.addEventListener('change', applyFilters);
 
 const tableHeaders = [...document.querySelectorAll('#t th')];
 

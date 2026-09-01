@@ -14,6 +14,12 @@ The mobile API gives us everything: price, floor area, rooms, energy label, wijk
 
 Opinion scores and house-hunt progress are independent. A listing can keep its 0–3 score while its personal status moves through call, viewing requested, viewing planned, viewed, bid, sold, or bought. Personal statuses are shared across signed-in browsers and stored in `data/tracking_statuses.json`. Sold and otherwise unavailable listings remain in the generated overview but are hidden by default; uncheck **hide sold** to revisit them.
 
+The fetched dataset spans €400k–€850k, while the table and map default to the
+€500k–€750k working range. Enable **wider €400k–€850k** to compare what opens
+up outside that range. The table's **districts** menu can hide multiple official
+districts; those exclusions persist in that browser until **show all districts**
+is selected.
+
 Each listing detail pane also supports a requestable due-diligence snapshot. A
 completed snapshot keeps the reviewed market range and external model estimate
 separate, then shows VvE risk, erfpacht risk, listing-specific flags, questions,
