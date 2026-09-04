@@ -316,8 +316,14 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn('data-district="District" data-price="500000"', page)
         self.assertIn('id="widerPrice"', page)
         self.assertIn("!price || price < 500000 || price > 750000", page)
-        self.assertIn("excludedDistricts.has(tr.dataset.district)", page)
+        self.assertIn('id="districtFilterEnabled" checked', page)
+        self.assertIn("'funda-district-filter-enabled'", page)
+        self.assertIn(
+            "districtFilterEnabled && excludedDistricts.has(tr.dataset.district)",
+            page,
+        )
         self.assertIn("'funda-hidden-districts'", page)
+        self.assertIn("clear district selection", page)
         self.assertIn('"District"', page)
         self.assertIn('id="scope"', map_page)
         self.assertIn('type="search" id="search"', map_page)

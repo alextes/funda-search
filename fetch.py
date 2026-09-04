@@ -1339,12 +1339,13 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <div class="controls">
   <label class="search-field">Search <input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
   <label title="Default range is €500k–€750k"><input type="checkbox" id="widerPrice"> wider €400k–€850k</label>
+  <label title="Temporarily include every district without changing the saved district selection"><input type="checkbox" id="districtFilterEnabled" checked> district filter</label>
   <details class="district-filter">
-    <summary id="districtSummary">districts</summary>
+    <summary id="districtSummary">configure districts</summary>
     <div class="district-menu">
       <strong>Hide districts</strong>
       <div class="district-options" id="districtOptions"></div>
-      <button type="button" id="clearDistricts">show all districts</button>
+      <button type="button" id="clearDistricts">clear district selection</button>
     </div>
   </details>
   <label><input type="checkbox" id="hideRated"> hide rated</label>
@@ -1400,16 +1401,22 @@ const widerPrice = document.getElementById('widerPrice');
 const availableDistricts = {district_json};
 const districtOptions = document.getElementById('districtOptions');
 const districtSummary = document.getElementById('districtSummary');
+const districtFilterEnabledInput = document.getElementById('districtFilterEnabled');
 const DISTRICT_STORAGE_KEY = 'funda-hidden-districts';
+const DISTRICT_FILTER_ENABLED_STORAGE_KEY = 'funda-district-filter-enabled';
 let excludedDistricts = new Set();
+let districtFilterEnabled = true;
 try {{
   const storedDistricts = JSON.parse(localStorage.getItem(DISTRICT_STORAGE_KEY) || '[]');
   excludedDistricts = new Set(storedDistricts.filter(district => availableDistricts.includes(district)));
+  const storedEnabled = localStorage.getItem(DISTRICT_FILTER_ENABLED_STORAGE_KEY);
+  if (storedEnabled !== null) districtFilterEnabled = storedEnabled === 'true';
 }} catch (error) {{}}
+districtFilterEnabledInput.checked = districtFilterEnabled;
 
 function updateDistrictSummary() {{
   const count = excludedDistricts.size;
-  districtSummary.textContent = count ? `districts (${{count}} hidden)` : 'districts';
+  districtSummary.textContent = count ? `configure districts (${{count}} hidden)` : 'configure districts';
 }}
 
 function saveExcludedDistricts() {{
@@ -1436,6 +1443,11 @@ document.getElementById('clearDistricts').addEventListener('click', () => {{
   excludedDistricts.clear();
   for (const input of districtOptions.querySelectorAll('input')) input.checked = false;
   saveExcludedDistricts();
+  applyFilters();
+}});
+districtFilterEnabledInput.addEventListener('change', () => {{
+  districtFilterEnabled = districtFilterEnabledInput.checked;
+  localStorage.setItem(DISTRICT_FILTER_ENABLED_STORAGE_KEY, String(districtFilterEnabled));
   applyFilters();
 }});
 updateDistrictSummary();
@@ -1643,7 +1655,7 @@ function applyFilters() {{
     if (isSold) sold++;
     const price = Number(tr.dataset.price);
     const hide = (!widerPrice.checked && (!price || price < 500000 || price > 750000))
-      || excludedDistricts.has(tr.dataset.district)
+      || (districtFilterEnabled && excludedDistricts.has(tr.dataset.district))
       || (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
       || (hideUO.checked && tr.dataset.status === 'negotiations')
       || (hideSold.checked && isSold)
