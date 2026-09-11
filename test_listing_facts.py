@@ -58,6 +58,9 @@ class ExtractionTests(unittest.TestCase):
             self.assertEqual(extracted['vve']['monthly_eur'], 190)
             request = urlopen.call_args.args[0]
             payload = json.loads(request.data)
+            self.assertEqual(payload['model'], "gpt-5.6-luna")
+            self.assertEqual(payload['reasoning'], {"effort": "low"})
+            self.assertEqual(extracted['reasoning_effort'], "low")
             self.assertFalse(payload['store'])
             self.assertTrue(payload['text']['format']['strict'])
             response['status'] = 'incomplete'
@@ -69,7 +72,8 @@ class ExtractionTests(unittest.TestCase):
     def test_priority_limit_cache_and_failure_cooldown(self):
         listings = {str(i): {'id': str(i), 'description': SOURCE} for i in range(4)}
         with patch.object(facts, 'extract', side_effect=lambda l: {
-            **RESULT, 'version': facts.VERSION, 'source_hash': facts.source_hash(l)
+            **RESULT, 'version': facts.VERSION, 'source_hash': facts.source_hash(l),
+            'model': facts.MODEL, 'reasoning_effort': facts.REASONING_EFFORT
         }) as extract:
             self.assertEqual(facts.enrich(listings, limit=2, ratings={'1': 3}, new_ids={'2'}), 2)
             self.assertEqual([c.args[0]['id'] for c in extract.call_args_list], ['2', '1'])
@@ -79,6 +83,18 @@ class ExtractionTests(unittest.TestCase):
         with patch.object(facts, 'extract', return_value={**RESULT}) as extract:
             facts.enrich(listings, limit=2)
             self.assertEqual([c.args[0]['id'] for c in extract.call_args_list], ['3'])
+
+    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'})
+    def test_previous_model_remains_visible_but_is_reextracted(self):
+        listing = {'id': '1', 'description': SOURCE}
+        listing['quick_facts'] = {**RESULT, 'version': facts.VERSION,
+            'source_hash': facts.source_hash(listing), 'model': 'gpt-5.4-nano-2026-03-17'}
+        self.assertIsNotNone(facts.current_facts(listing))
+        with patch.object(facts, 'extract', return_value={**listing['quick_facts'],
+                'model': facts.MODEL, 'reasoning_effort': facts.REASONING_EFFORT}) as extract:
+            self.assertEqual(facts.enrich({'1': listing}), 1)
+            self.assertEqual(facts.enrich({'1': listing}), 0)
+            extract.assert_called_once()
 
     @patch.dict('os.environ', {}, clear=True)
     def test_missing_key_is_noop(self):
