@@ -753,7 +753,6 @@ def render_map(config: dict, rows: list[dict]) -> None:
                 "lon": lon,
                 "price": listing.get("price"),
                 "area": listing.get("living_area"),
-                "quick_facts": listing_facts.current_facts(listing),
                 "price_per_m2": listing.get("price_per_m2"),
                 "rooms": listing.get("rooms"),
                 "saved_count": listing.get("saved_count"),
@@ -935,12 +934,6 @@ function popupFor(listing) {
   facts.push(listing.saved_count === null ? 'saves unknown' : `${listing.saved_count} saves`);
   meta.textContent = facts.join(' · ');
   root.append(meta);
-  if (listing.quick_facts) {
-    const costs = document.createElement('div');
-    costs.className = 'meta';
-    costs.textContent = `VvE: ${listing.quick_facts.vve.summary} · Erfpacht: ${listing.quick_facts.erfpacht.summary}`;
-    root.append(costs);
-  }
   const place = document.createElement('div');
   place.className = 'meta';
   place.textContent = [listing.district, listing.neighbourhood].filter(Boolean).join(' · ');
@@ -1191,18 +1184,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
         ).lower()
         quick = listing_facts.current_facts(l)
         quick_json = html.escape(json.dumps(quick, ensure_ascii=False))
-        cost_preview = ""
-        if quick:
-            amount = quick["vve"].get("monthly_eur")
-            vve_label = f"€{amount:g}/mo" if amount is not None else quick["vve"]["summary"]
-            cost_preview = (
-                f'<div class="cost-preview" title="AI extraction from listing; open for source quotes">'
-                f'VvE: {html.escape(vve_label)}<br>Erfpacht: {html.escape(quick["erfpacht"].get("headline") or quick["erfpacht"]["summary"])}</div>'
-            )
         body_rows.append(
             f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-district="{html.escape(l.get('wijk') or '')}" data-price="{l.get('price') or 0}" data-area="{l.get('living_area') or 0}" data-quick-facts="{quick_json}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
   <td class="photo">{photo}</td>
-  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}{cost_preview}</td>
+  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
     <option value="call">call</option>
@@ -1312,7 +1297,6 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .history {{ margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid #ddd; color: #555; }}
   .history strong {{ display: block; color: #222; margin-bottom: .3rem; }}
   .history .event {{ font-size: .8rem; line-height: 1.5; }}
-  .cost-preview {{ font-size: .72rem; color: #666; white-space: normal; line-height: 1.35; margin-top: .3rem; }}
   .quick-quote {{ font-size: .78rem; color: #666; white-space: pre-wrap; margin: .5rem 0; }}
   .analysis {{ margin-bottom: 1rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; background: #fff; }}
   .analysis-head {{ display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .7rem; }}
