@@ -12,6 +12,8 @@ This was the big unknown, so it was the first proof of concept. Findings:
 
 The mobile API gives us everything: price, floor area, rooms, energy label, wijk + buurt, coordinates, full description, photos, and floor plan URLs. The app records Funda price and market-status changes as an append-only observation history; older records receive one clearly marked legacy snapshot because changes from before tracking began cannot be reconstructed.
 
+The table and map hide scores ✕, 1, and 2 by default, while keeping unrated listings visible for review. Use **Hide scores** to include lower scores without changing any recorded ratings. The sortable **Saved** column and map popups show Funda’s reported save count, refreshed hourly for active listings. Missing counts display as unknown; off-market listings keep their last observed count.
+
 Opinion scores and house-hunt progress are independent. A listing can keep its 0–3 score while its personal status moves through call, viewing requested, viewing planned, viewed, bid, sold, or bought. Personal statuses are shared across signed-in browsers and stored in `data/tracking_statuses.json`. Sold and otherwise unavailable listings remain in the generated overview but are hidden by default; uncheck **hide sold** to revisit them.
 
 The fetched dataset spans €400k–€850k, while the table and map default to the

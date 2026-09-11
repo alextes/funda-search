@@ -14,6 +14,27 @@ SQUARE = {
 }
 
 
+class SavedCountTests(unittest.TestCase):
+    def test_reported_counts_and_unknown_values(self):
+        for value, expected in [("35", 35), ("0", 0), (0, 0), (None, None),
+                                ("unknown", None), (-1, None), (True, None)]:
+            with self.subTest(value=value):
+                self.assertEqual(fetch.saved_count(Mock(raw={"ObjectInsights": {"Saves": value}})), expected)
+        self.assertIsNone(fetch.saved_count(Mock(raw={})))
+
+    def test_refresh_persists_count_changes_without_price_or_status_changes(self):
+        listing = {"id": "1", "title": "Example", "status": "available", "price": 500000}
+        detail = Mock(raw={"ObjectInsights": {"Saves": "35"}}, status="available")
+        detail.price.amount = 500000
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.listing.return_value = detail
+        with patch.object(fetch, "Funda", return_value=client), patch.object(fetch.time, "sleep"):
+            self.assertEqual(fetch.refresh_statuses({"1": listing}), 1)
+            self.assertEqual(listing["saved_count"], 35)
+            self.assertEqual(fetch.refresh_statuses({"1": listing}), 0)
+
+
 class HistoryTests(unittest.TestCase):
     def test_legacy_snapshot_is_idempotent(self):
         listings = {
@@ -273,7 +294,7 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn("€ 5.848–6.683/m²", page)
         self.assertIn('class="band below"', page)
         self.assertIn("Observed history", page)
-        self.assertIn("cell.colSpan = 15", page)
+        self.assertIn("cell.colSpan = 16", page)
         self.assertIn('title="Straight-line distance to Dam Square">Dam</th>', page)
         self.assertIn(
             'title="Straight-line distance to Science Park 303">SP 303</th>',

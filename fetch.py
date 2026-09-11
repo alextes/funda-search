@@ -501,6 +501,20 @@ def search_website(
     return found
 
 
+def saved_count(detail) -> int | None:
+    """Read Funda's reported saves; absent or malformed data is unknown."""
+    raw = getattr(detail, "raw", None)
+    insights = raw.get("ObjectInsights") if isinstance(raw, dict) else None
+    value = insights.get("Saves") if isinstance(insights, dict) else None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value.strip()):
+        return int(value.strip())
+    return None
+
+
 def build_record(item, detail, config: dict) -> dict:
     addr = item.address
     wijk = None
@@ -570,6 +584,7 @@ def build_record(item, detail, config: dict) -> dict:
         "photo_url": photo_url,
         "photo_urls": photos,
         "description": detail.description,
+        "saved_count": saved_count(detail),
         "status": str(detail.status or item.status or ""),
     }
     record_observation(record, price=price, status=record["status"])
@@ -630,8 +645,11 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
 
 
 def refresh_statuses(listings: dict[str, dict]) -> int:
-    """Re-fetch status and price for listings not yet known to be off the market."""
-    todo = [l for l in listings.values() if l.get("status") not in GONE_STATUSES]
+    """Refresh active listings, and backfill saves once for older records."""
+    todo = [
+        l for l in listings.values()
+        if l.get("status") not in GONE_STATUSES or "saved_count" not in l
+    ]
     changed = 0
     ensure_histories(listings)
     with Funda() as client:
@@ -642,11 +660,16 @@ def refresh_statuses(listings: dict[str, dict]) -> int:
                 if "404" in str(e) or "not found" in str(e).lower():
                     record_observation(l, status="unavailable")
                     l["status"] = "unavailable"
+                    l.setdefault("saved_count", None)
                     changed += 1
                 else:
                     print(f"  status check failed for {l['title']}: {e}", file=sys.stderr)
                 time.sleep(DETAIL_FETCH_DELAY_S)
                 continue
+            saves = saved_count(detail)
+            if "saved_count" not in l or saves != l.get("saved_count"):
+                l["saved_count"] = saves
+                changed += 1
             new_status = str(detail.status or l.get("status") or "")
             if new_status != l.get("status"):
                 print(f"  {l['title']}: {l.get('status') or '?'} -> {new_status}")
@@ -722,6 +745,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
                 "area": listing.get("living_area"),
                 "price_per_m2": listing.get("price_per_m2"),
                 "rooms": listing.get("rooms"),
+                "saved_count": listing.get("saved_count"),
                 "energy": listing.get("energy_label"),
                 "district": listing.get("wijk"),
                 "neighbourhood": listing.get("neighbourhood"),
@@ -805,8 +829,8 @@ def render_map(config: dict, rows: list[dict]) -> None:
     <label class="control"><span>Listings</span><select id="scope">
       <option value="128">128 most recent</option><option value="all">all</option>
     </select></label>
-    <label class="control"><span>Minimum score</span><select id="minScore">
-      <option value="">any</option><option value="1">1+</option><option value="2">2+</option><option value="3">3 only</option>
+    <label class="control"><span>Hide scores</span><select id="minScore">
+      <option value="0">none</option><option value="1">✕</option><option value="2">✕ + 1</option><option value="3" selected>✕ + 1 + 2</option>
     </select></label>
     <label class="control"><span>Tracking status</span><select id="tracking">
       <option value="">any</option><option value="untracked">untracked</option><option value="call">call</option>
@@ -815,7 +839,6 @@ def render_map(config: dict, rows: list[dict]) -> None:
     </select></label>
     <label class="check" title="Default range is €500k–€750k"><input type="checkbox" id="widerPrice"> wider €400k–€850k</label>
     <label class="check"><input type="checkbox" id="hideRated"> hide rated</label>
-    <label class="check"><input type="checkbox" id="hideNo" checked> hide not interesting</label>
     <label class="check"><input type="checkbox" id="hideUO" checked> hide under offer</label>
     <label class="check"><input type="checkbox" id="hideSold" checked> hide sold</label>
     <button type="button" id="fit">fit markers</button>
@@ -838,7 +861,6 @@ const controls = {
   tracking: document.getElementById('tracking'),
   widerPrice: document.getElementById('widerPrice'),
   hideRated: document.getElementById('hideRated'),
-  hideNo: document.getElementById('hideNo'),
   hideUO: document.getElementById('hideUO'),
   hideSold: document.getElementById('hideSold'),
 };
@@ -868,8 +890,7 @@ function matches(listing) {
   if (!controls.widerPrice.checked
       && (!listing.price || listing.price < 500000 || listing.price > 750000)) return false;
   if (controls.hideRated.checked && score !== null) return false;
-  if (controls.hideNo.checked && score === 0) return false;
-  if (minScore && (score === null || score < Number(minScore))) return false;
+  if (score !== null && score < Number(minScore)) return false;
   if (controls.hideUO.checked && listing.market_status === 'negotiations') return false;
   const sold = tracking === 'sold' || (listing.market_gone && tracking !== 'bought');
   if (controls.hideSold.checked && sold) return false;
@@ -897,6 +918,7 @@ function popupFor(listing) {
   if (listing.energy) facts.push(`energy ${listing.energy}`);
   const meta = document.createElement('div');
   meta.className = 'meta';
+  facts.push(listing.saved_count === null ? 'saves unknown' : `${listing.saved_count} saves`);
   meta.textContent = facts.join(' · ');
   root.append(meta);
   const place = document.createElement('div');
@@ -962,11 +984,10 @@ async function loadSharedState() {
 function resetFilters() {
   controls.search.value = '';
   controls.scope.value = '128';
-  controls.minScore.value = '';
+  controls.minScore.value = '3';
   controls.tracking.value = '';
   controls.widerPrice.checked = false;
   controls.hideRated.checked = false;
-  controls.hideNo.checked = true;
   controls.hideUO.checked = true;
   controls.hideSold.checked = true;
   renderMarkers(false);
@@ -997,7 +1018,7 @@ async function start() {
   renderMarkers(false);
 }
 
-for (const control of [controls.scope, controls.widerPrice, controls.hideNo, controls.hideUO, controls.hideSold]) {
+for (const control of [controls.scope, controls.widerPrice, controls.hideUO, controls.hideSold]) {
   control.addEventListener('change', () => renderMarkers(false));
 }
 let searchTimer;
@@ -1006,11 +1027,9 @@ controls.search.addEventListener('input', () => {
   searchTimer = setTimeout(() => renderMarkers(false), 120);
 });
 controls.minScore.addEventListener('change', () => {
-  if (controls.minScore.value) controls.hideRated.checked = false;
   renderMarkers(false);
 });
 controls.hideRated.addEventListener('change', () => {
-  if (controls.hideRated.checked) controls.minScore.value = '';
   renderMarkers(false);
 });
 controls.tracking.addEventListener('change', () => {
@@ -1168,6 +1187,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   {distance_td(center_distance)}
   {distance_td(work_distance)}
   <td class="listed" data-date="{html.escape(l.get('publication_date') or '')}" title="{html.escape(l.get('publication_date') or '')}">–</td>
+  <td data-sort="{l.get('saved_count') if l.get('saved_count') is not None else -1}" title="Funda saves at last listing refresh">{l.get('saved_count') if l.get('saved_count') is not None else '–'}</td>
   <td class="score" data-sort="-1"><div class="rate">
     <button data-s="0" title="reviewed, not interesting">✕</button>
     <button data-s="1">1</button>
@@ -1349,7 +1369,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     </div>
   </details>
   <label><input type="checkbox" id="hideRated"> hide rated</label>
-  <label><input type="checkbox" id="hideNo" checked> hide "not interesting" (✕)</label>
+  <label title="Unrated listings stay visible for review">Hide scores <select id="minScore"><option value="0">none</option><option value="1">✕</option><option value="2">✕ + 1</option><option value="3" selected>✕ + 1 + 2</option></select></label>
   <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
   <label><input type="checkbox" id="hideSold" checked> hide sold</label>
   <span id="counts" class="meta"></span>
@@ -1357,7 +1377,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <table id="t">
 <thead><tr>
   <th></th><th class="addr">Address</th><th class="tracking">Status</th><th class="district">District</th><th class="neighbourhood">Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1">Score</th>
+  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1" title="Times saved on Funda; refreshed hourly for active listings">Saved</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(initial_body_rows)}
@@ -1393,7 +1413,7 @@ function hydrateListedDates(root = document) {{
 }}
 hydrateListedDates();
 const hideRated = document.getElementById('hideRated');
-const hideNo = document.getElementById('hideNo');
+const minScore = document.getElementById('minScore');
 const hideUO = document.getElementById('hideUO');
 const hideSold = document.getElementById('hideSold');
 const search = document.getElementById('search');
@@ -1656,7 +1676,7 @@ function applyFilters() {{
     const price = Number(tr.dataset.price);
     const hide = (!widerPrice.checked && (!price || price < 500000 || price > 750000))
       || (districtFilterEnabled && excludedDistricts.has(tr.dataset.district))
-      || (hideRated.checked && s !== undefined) || (hideNo.checked && s === 0)
+      || (hideRated.checked && s !== undefined) || (s !== undefined && s < Number(minScore.value))
       || (hideUO.checked && tr.dataset.status === 'negotiations')
       || (hideSold.checked && isSold)
       || (query && !tr.dataset.search.includes(query));
@@ -1673,7 +1693,7 @@ function applyFilters() {{
 }}
 
 hideRated.addEventListener('change', applyFilters);
-hideNo.addEventListener('change', applyFilters);
+minScore.addEventListener('change', applyFilters);
 hideUO.addEventListener('change', applyFilters);
 hideSold.addEventListener('change', applyFilters);
 widerPrice.addEventListener('change', applyFilters);
@@ -1986,7 +2006,7 @@ function toggleFold(tr) {{
   const row = document.createElement('tr');
   row.className = 'desc-row';
   const cell = document.createElement('td');
-  cell.colSpan = 15;
+  cell.colSpan = 16;
   const fold = document.createElement('div');
   fold.className = 'fold';
   const descDiv = document.createElement('div');
