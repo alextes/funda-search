@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -144,7 +145,52 @@ def queue(client: Client, *, json_output: bool) -> None:
         )
 
 
-def listing(client: Client, listing_id: str) -> None:
+def missing_facts(record: dict) -> list[str]:
+    quick = record.get("quick_facts") or {}
+    missing = []
+    if record.get("saved_count") is None:
+        missing.append("saved_count")
+    if (quick.get("vve") or {}).get("monthly_eur") is None:
+        missing.append("vve")
+    lease = quick.get("erfpacht") or {}
+    if not lease.get("evidence") or not lease.get("summary"):
+        missing.append("erfpacht")
+    return missing
+
+
+def recover_facts(record: dict) -> dict:
+    """Read-only source recovery; include recovered facts in the eventual review."""
+    missing = missing_facts(record)
+    result = {"missing_before": missing, "observed_at": datetime.now(timezone.utc).isoformat(),
+              "source_url": record.get("url"), "saved_count": record.get("saved_count")}
+    if not missing:
+        return result
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+    import fetch as core
+
+    refreshed = dict(record)
+    try:
+        with core.Funda() as client:
+            detail = client.listing(record.get("url") or record["id"])
+        refreshed["description"] = detail.description or record.get("description") or ""
+        refreshed["cost_characteristics"] = core.listing_facts.characteristics(detail)
+        if "saved_count" in missing:
+            refreshed["saved_count"] = core.saved_count(detail)
+        result.update({key: refreshed.get(key) for key in
+                       ("description", "cost_characteristics", "saved_count")})
+    except Exception as error:
+        result["source_error"] = type(error).__name__
+    if any(key in missing for key in ("vve", "erfpacht")):
+        try:
+            refreshed["quick_facts"] = core.listing_facts.extract(refreshed)
+            result["quick_facts"] = refreshed["quick_facts"]
+        except Exception as error:
+            result["extraction_error"] = type(error).__name__
+    result["missing_after"] = missing_facts(refreshed)
+    return result
+
+
+def listing(client: Client, listing_id: str, *, refresh_facts: bool = False) -> None:
     listings = client.get_json("/listings.json")
     state = client.get_json("/analysis-state.json")
     record = listings.get(str(listing_id))
@@ -155,6 +201,9 @@ def listing(client: Client, listing_id: str) -> None:
         "request": (state.get("requests") or {}).get(str(listing_id)),
         "analysis": (state.get("analyses") or {}).get(str(listing_id)),
     }
+    output["missing_ingest_facts"] = missing_facts(record)
+    if refresh_facts:
+        output["recovered_facts"] = recover_facts(record)
     print(json.dumps(output, indent=2, ensure_ascii=False))
 
 
@@ -197,6 +246,8 @@ def parse_args() -> argparse.Namespace:
     queue_parser.add_argument("--json", action="store_true", dest="json_output")
     listing_parser = subparsers.add_parser("listing", help="show deployed listing context")
     listing_parser.add_argument("listing_id")
+    listing_parser.add_argument("--refresh-facts", action="store_true",
+                                help="attempt read-only recovery of missing ingest facts")
     save_parser = subparsers.add_parser("save", help="save and verify an analysis")
     save_parser.add_argument("listing_id")
     save_parser.add_argument("--analysis", type=Path, required=True)
@@ -210,7 +261,7 @@ def main() -> int:
         if args.command == "queue":
             queue(client, json_output=args.json_output)
         elif args.command == "listing":
-            listing(client, args.listing_id)
+            listing(client, args.listing_id, refresh_facts=args.refresh_facts)
         elif args.command == "save":
             save(client, args.listing_id, args.analysis)
         return 0

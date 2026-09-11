@@ -31,6 +31,42 @@ Run `queue` first. If the user refers to “the requested analysis” without an
 
 Run `listing <id>` to obtain the VM-owned record plus any existing analysis/request. Do not rely on the checkout's `data/listings.json`, which can differ from production.
 
+## Recover missing ingestion facts
+
+Every requested analysis must check `saved_count` and the VvE/erfpacht fields in
+`quick_facts`, as well as any existing reviewed analysis. `listing` reports
+`missing_ingest_facts`. A saved count of **0 is known**, not missing. A null VvE
+amount or empty erfpacht evidence needs investigation, not an assumption of zero
+cost or own ground.
+
+When any are missing, run from the repository root:
+
+```bash
+.venv/bin/python .agents/skills/funda-search-analysis/scripts/deployed_analysis.py listing <listing-id> --refresh-facts
+```
+
+This reads fresh Funda detail, reuses `fetch.saved_count` (`ObjectInsights.Saves`)
+and `listing_facts.characteristics`, and attempts the same Luna extraction as
+new ingestion. `OPENAI_API_KEY` must be available for extraction; if it is not,
+use the returned description/characteristics for manual review. Source/API
+failures are reported, and do not prevent reviewing the remaining evidence.
+The helper is read-only: its `recovered_facts` are review inputs, not a write to
+VM listing data.
+
+Include recovered VvE costs in `analysis.vve.monthly_eur` and explain inclusions,
+heating advances, or conflicting amounts in its summary. Include recovered
+ownership/leasehold terms in `analysis.erfpacht`, distinguishing current buyout,
+future canon, and pending versus completed perpetual conversion. Keep any
+existing stronger reviewed evidence and explain contradictions.
+
+Include the current or recovered saved count and its observation date in
+`analysis.market.summary` (e.g. “Saved 35 times on Funda, checked 2026-09-11”),
+with the exact numeric count also in optional `analysis.market.saved_count`.
+Treat saves as an interest signal, never as the number of bidders. Add Funda to
+`sources`. If details remain unavailable after checking the listing and brochure,
+say which facts could not be established; never manufacture values. After saving,
+verify these recovered details in the stored analysis along with queue clearance.
+
 ## Research the property
 
 Recheck the live listing and current status. Review the complete description, characteristics, floor plans, brochure when available, and earlier listing history. Then research:

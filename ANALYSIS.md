@@ -127,3 +127,9 @@ which can research the listing and save the structured result through `POST /ana
   "sources": [{"label": "Funda", "url": "https://example.com/listing"}]
 }
 ```
+
+Requested reviews also check for missing ingestion facts: VvE costs, erfpacht
+terms, and Funda saved count. The repository skill's `listing --refresh-facts`
+option attempts fresh source recovery using the ingestion parsers and Luna.
+Recovered values are included in the saved review, with source dates and
+uncertainty; the helper does not directly change VM listing data.
