@@ -92,8 +92,9 @@ refresh** for changed listings or new documents.
 
 Requests deliberately enter a review queue instead of invoking an unattended
 LLM. The review depends on live sources, document interpretation, and explicit
-uncertainty. Process queued requests with Codex, which can research the listing
-and save the structured result through `POST /analysis`.
+uncertainty. Process queued requests with the repository-scoped
+[funda-search-analysis skill](.agents/skills/funda-search-analysis/SKILL.md),
+which can research the listing and save the structured result through `POST /analysis`.
 
 ## Stored shape
 

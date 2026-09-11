@@ -1,0 +1,4 @@
+interface:
+  display_name: "Funda Search Analysis"
+  short_description: "Process deployed property-analysis requests"
+  default_prompt: "Use $funda-search-analysis to complete the latest pending property analysis in the deployed app."
