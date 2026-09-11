@@ -218,9 +218,16 @@ def fetch_once() -> None:
     config = core.load_config()  # re-read each round so config edits apply live
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
+    previous_ids = set(listings)
     total, new = core.fetch(config, listings)
+    if new or histories_changed:
+        core.save_listings(listings)  # Persist ingestion before optional API calls.
+    facts_changed = core.listing_facts.enrich(
+        listings, limit=config.get("facts_per_fetch", 20), ratings=load_ratings(),
+        new_ids=set(listings) - previous_ids, gone_statuses=core.GONE_STATUSES,
+    )
     districts_changed = core.ensure_districts(listings)
-    if new or histories_changed or districts_changed:
+    if new or histories_changed or districts_changed or facts_changed:
         core.save_listings(listings)
     core.render(config, listings)
     state["last_fetch"] = datetime.now()
@@ -233,7 +240,11 @@ def status_refresh_once() -> None:
     config = core.load_config()
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
-    changed = core.refresh_statuses(listings)
+    def checkpoint():
+        core.save_listings(listings)
+        core.render(config, listings)
+
+    changed = core.refresh_statuses(listings, checkpoint=checkpoint)
     districts_changed = core.ensure_districts(listings)
     core.save_listings(listings)
     if changed or histories_changed or districts_changed:

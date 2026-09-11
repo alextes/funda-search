@@ -23,7 +23,7 @@ class SavedCountTests(unittest.TestCase):
         self.assertIsNone(fetch.saved_count(Mock(raw={})))
 
     def test_refresh_persists_count_changes_without_price_or_status_changes(self):
-        listing = {"id": "1", "title": "Example", "status": "available", "price": 500000}
+        listing = {"id": "1", "title": "Example", "status": "available", "price": 500000, "cost_characteristics": ""}
         detail = Mock(raw={"ObjectInsights": {"Saves": "35"}}, status="available")
         detail.price.amount = 500000
         client = MagicMock()

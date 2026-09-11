@@ -28,6 +28,8 @@ from curl_cffi import requests as curl_requests
 from funda import Funda, SearchError
 from PIL import Image
 
+import listing_facts
+
 ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data" / "listings.json"
 OVERVIEW_FILE = ROOT / "overview.html"
@@ -584,6 +586,7 @@ def build_record(item, detail, config: dict) -> dict:
         "photo_url": photo_url,
         "photo_urls": photos,
         "description": detail.description,
+        "cost_characteristics": listing_facts.characteristics(detail),
         "saved_count": saved_count(detail),
         "status": str(detail.status or item.status or ""),
     }
@@ -644,7 +647,7 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
     return len(items), len(new_items)
 
 
-def refresh_statuses(listings: dict[str, dict]) -> int:
+def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
     """Refresh active listings, and backfill saves once for older records."""
     todo = [
         l for l in listings.values()
@@ -653,7 +656,9 @@ def refresh_statuses(listings: dict[str, dict]) -> int:
     changed = 0
     ensure_histories(listings)
     with Funda() as client:
-        for l in todo:
+        for index, l in enumerate(todo):
+            if checkpoint and index and index % 25 == 0:
+                checkpoint()
             try:
                 detail = client.listing(l["id"])
             except Exception as e:
@@ -666,6 +671,11 @@ def refresh_statuses(listings: dict[str, dict]) -> int:
                     print(f"  status check failed for {l['title']}: {e}", file=sys.stderr)
                 time.sleep(DETAIL_FETCH_DELAY_S)
                 continue
+            for field, value in (("description", detail.description),
+                                 ("cost_characteristics", listing_facts.characteristics(detail))):
+                if isinstance(value, str) and value != l.get(field):
+                    l[field] = value
+                    changed += 1
             saves = saved_count(detail)
             if "saved_count" not in l or saves != l.get("saved_count"):
                 l["saved_count"] = saves
@@ -743,6 +753,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
                 "lon": lon,
                 "price": listing.get("price"),
                 "area": listing.get("living_area"),
+                "quick_facts": listing_facts.current_facts(listing),
                 "price_per_m2": listing.get("price_per_m2"),
                 "rooms": listing.get("rooms"),
                 "saved_count": listing.get("saved_count"),
@@ -829,6 +840,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
     <label class="control"><span>Listings</span><select id="scope">
       <option value="128">128 most recent</option><option value="all">all</option>
     </select></label>
+    <label class="control"><span>Min area (m²)</span><input id="minArea" type="number" min="0" step="1" placeholder="Any" style="width:6rem"></label>
     <label class="control"><span>Hide scores</span><select id="minScore">
       <option value="0">none</option><option value="1">✕</option><option value="2">✕ + 1</option><option value="3" selected>✕ + 1 + 2</option>
     </select></label>
@@ -858,6 +870,7 @@ const controls = {
   search: document.getElementById('search'),
   scope: document.getElementById('scope'),
   minScore: document.getElementById('minScore'),
+  minArea: document.getElementById('minArea'),
   tracking: document.getElementById('tracking'),
   widerPrice: document.getElementById('widerPrice'),
   hideRated: document.getElementById('hideRated'),
@@ -891,6 +904,7 @@ function matches(listing) {
       && (!listing.price || listing.price < 500000 || listing.price > 750000)) return false;
   if (controls.hideRated.checked && score !== null) return false;
   if (score !== null && score < Number(minScore)) return false;
+  if (Number(controls.minArea.value) > 0 && (!listing.area || listing.area < Number(controls.minArea.value))) return false;
   if (controls.hideUO.checked && listing.market_status === 'negotiations') return false;
   const sold = tracking === 'sold' || (listing.market_gone && tracking !== 'bought');
   if (controls.hideSold.checked && sold) return false;
@@ -921,6 +935,12 @@ function popupFor(listing) {
   facts.push(listing.saved_count === null ? 'saves unknown' : `${listing.saved_count} saves`);
   meta.textContent = facts.join(' · ');
   root.append(meta);
+  if (listing.quick_facts) {
+    const costs = document.createElement('div');
+    costs.className = 'meta';
+    costs.textContent = `VvE: ${listing.quick_facts.vve.summary} · Erfpacht: ${listing.quick_facts.erfpacht.summary}`;
+    root.append(costs);
+  }
   const place = document.createElement('div');
   place.className = 'meta';
   place.textContent = [listing.district, listing.neighbourhood].filter(Boolean).join(' · ');
@@ -985,6 +1005,8 @@ function resetFilters() {
   controls.search.value = '';
   controls.scope.value = '128';
   controls.minScore.value = '3';
+  controls.minArea.value = '';
+  try { localStorage.removeItem('funda-min-area'); } catch {}
   controls.tracking.value = '';
   controls.widerPrice.checked = false;
   controls.hideRated.checked = false;
@@ -1021,6 +1043,11 @@ async function start() {
 for (const control of [controls.scope, controls.widerPrice, controls.hideUO, controls.hideSold]) {
   control.addEventListener('change', () => renderMarkers(false));
 }
+try { controls.minArea.value = localStorage.getItem('funda-min-area') || ''; } catch {}
+controls.minArea.addEventListener('input', () => {
+  try { localStorage.setItem('funda-min-area', controls.minArea.value); } catch {}
+  renderMarkers(false);
+});
 let searchTimer;
 controls.search.addEventListener('input', () => {
   clearTimeout(searchTimer);
@@ -1162,10 +1189,20 @@ def render(config: dict, listings: dict[str, dict]) -> None:
             for value in (l.get("title"), l.get("wijk"), l.get("neighbourhood"))
             if value
         ).lower()
+        quick = listing_facts.current_facts(l)
+        quick_json = html.escape(json.dumps(quick, ensure_ascii=False))
+        cost_preview = ""
+        if quick:
+            amount = quick["vve"].get("monthly_eur")
+            vve_label = f"€{amount:g}/mo" if amount is not None else quick["vve"]["summary"]
+            cost_preview = (
+                f'<div class="cost-preview" title="AI extraction from listing; open for source quotes">'
+                f'VvE: {html.escape(vve_label)}<br>Erfpacht: {html.escape(quick["erfpacht"].get("headline") or quick["erfpacht"]["summary"])}</div>'
+            )
         body_rows.append(
-            f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-district="{html.escape(l.get('wijk') or '')}" data-price="{l.get('price') or 0}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
+            f"""<tr data-id="{l['id']}" data-search="{html.escape(search_text)}" data-district="{html.escape(l.get('wijk') or '')}" data-price="{l.get('price') or 0}" data-area="{l.get('living_area') or 0}" data-quick-facts="{quick_json}" data-status="{html.escape(l.get('status') or '')}" data-market-gone="{int(l.get('status') in GONE_STATUSES)}" data-desc="{desc}" data-fp="{html.escape(fp_data)}" data-lat="{l.get('lat') or ''}" data-lon="{l.get('lon') or ''}" data-photos="{html.escape(photo_urls)}" data-history="{html.escape(history_data)}" data-brochure="{html.escape(l.get('brochure_url') or '')}">
   <td class="photo">{photo}</td>
-  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}</td>
+  <td class="addr"><a href="{html.escape(l['url'])}" target="_blank" title="{html.escape(l['title'] or '?')}">{html.escape(l['title'] or '?')}</a>{'<span class="uo-tag">under offer</span>' if l.get('status') == 'negotiations' else ''}{cost_preview}</td>
   <td class="tracking" data-sort=""><select class="tracking-select" aria-label="Tracking status for {html.escape(l['title'] or '?')}" aria-describedby="statusLegend">
     <option value="">—</option>
     <option value="call">call</option>
@@ -1275,6 +1312,8 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .history {{ margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid #ddd; color: #555; }}
   .history strong {{ display: block; color: #222; margin-bottom: .3rem; }}
   .history .event {{ font-size: .8rem; line-height: 1.5; }}
+  .cost-preview {{ font-size: .72rem; color: #666; white-space: normal; line-height: 1.35; margin-top: .3rem; }}
+  .quick-quote {{ font-size: .78rem; color: #666; white-space: pre-wrap; margin: .5rem 0; }}
   .analysis {{ margin-bottom: 1rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; background: #fff; }}
   .analysis-head {{ display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .7rem; }}
   .analysis-head strong {{ color: #222; }}
@@ -1369,6 +1408,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
     </div>
   </details>
   <label><input type="checkbox" id="hideRated"> hide rated</label>
+  <label>Min area (m²) <input id="minArea" type="number" min="0" step="1" placeholder="Any" style="width:5rem"></label>
   <label title="Unrated listings stay visible for review">Hide scores <select id="minScore"><option value="0">none</option><option value="1">✕</option><option value="2">✕ + 1</option><option value="3" selected>✕ + 1 + 2</option></select></label>
   <label><input type="checkbox" id="hideUO" checked> hide under offer</label>
   <label><input type="checkbox" id="hideSold" checked> hide sold</label>
@@ -1414,6 +1454,8 @@ function hydrateListedDates(root = document) {{
 hydrateListedDates();
 const hideRated = document.getElementById('hideRated');
 const minScore = document.getElementById('minScore');
+const minArea = document.getElementById('minArea');
+try {{ minArea.value = localStorage.getItem('funda-min-area') || ''; }} catch {{}}
 const hideUO = document.getElementById('hideUO');
 const hideSold = document.getElementById('hideSold');
 const search = document.getElementById('search');
@@ -1675,6 +1717,7 @@ function applyFilters() {{
     if (isSold) sold++;
     const price = Number(tr.dataset.price);
     const hide = (!widerPrice.checked && (!price || price < 500000 || price > 750000))
+      || (Number(minArea.value) > 0 && (!Number(tr.dataset.area) || Number(tr.dataset.area) < Number(minArea.value)))
       || (districtFilterEnabled && excludedDistricts.has(tr.dataset.district))
       || (hideRated.checked && s !== undefined) || (s !== undefined && s < Number(minScore.value))
       || (hideUO.checked && tr.dataset.status === 'negotiations')
@@ -1694,6 +1737,11 @@ function applyFilters() {{
 
 hideRated.addEventListener('change', applyFilters);
 minScore.addEventListener('change', applyFilters);
+minArea.addEventListener('input', async () => {{
+  try {{ localStorage.setItem('funda-min-area', minArea.value); }} catch {{}}
+  applyFilters();
+  if (await loadAllRows('filtering by area')) applyFilters();
+}});
 hideUO.addEventListener('change', applyFilters);
 hideSold.addEventListener('change', applyFilters);
 widerPrice.addEventListener('change', applyFilters);
@@ -1856,6 +1904,29 @@ function buildAnalysisPanel(id) {{
   const pending = analysisRequests[id];
   const row = listingRows().find(candidate => candidate.dataset.id === id);
   const brochureUrl = analysis?.brochure_url || pending?.brochure_url || row?.dataset.brochure;
+  const quick = JSON.parse(row?.dataset.quickFacts || 'null');
+  if (quick) {{
+    const heading = document.createElement('strong');
+    heading.textContent = 'VvE & erfpacht · from listing';
+    const meta = document.createElement('p');
+    meta.className = 'analysis-meta';
+    meta.textContent = `AI extraction · ${{quick.extracted_at.slice(0, 10)}} · Published claims, not independently verified`;
+    const facts = document.createElement('div');
+    facts.className = 'analysis-grid';
+    for (const [label, section] of [['VvE', quick.vve], ['Erfpacht', quick.erfpacht]]) {{
+      const card = document.createElement('div');
+      card.className = 'analysis-card';
+      const title = document.createElement('h4'); title.textContent = label;
+      const summary = document.createElement('div'); summary.textContent = section.summary;
+      card.append(title, summary);
+      for (const quote of section.evidence) {{
+        const source = document.createElement('blockquote');
+        source.className = 'quick-quote'; source.textContent = quote; card.append(source);
+      }}
+      facts.append(card);
+    }}
+    panel.append(heading, meta, facts);
+  }}
   const head = document.createElement('div');
   head.className = 'analysis-head';
   const title = document.createElement('strong');
@@ -2224,6 +2295,9 @@ document.addEventListener('keydown', e => {{
 }});
 
 const stateReady = initState();
+stateReady.then(async () => {{
+  if (Number(minArea.value) > 0 && await loadAllRows('filtering by area')) applyFilters();
+}});
 </script>
 </body>
 </html>
@@ -2266,6 +2340,10 @@ def main() -> None:
         action="store_true",
         help="download Amsterdam's administrative districts, backfill, then re-render",
     )
+    parser.add_argument("--extract-facts", action="store_true",
+                        help="extract VvE and erfpacht from stored listings without discovery")
+    parser.add_argument("--facts-limit", type=int, default=None,
+                        help="maximum extractions in this run (default: config facts_per_fetch)")
     args = parser.parse_args()
 
     config = load_config()
@@ -2293,12 +2371,18 @@ def main() -> None:
         histories_changed = histories_changed or bool(
             args.backfill_floorplans or args.backfill_photos or args.refresh_status
         )
-    elif not args.render_only:
+    elif not args.render_only and not args.extract_facts:
         _, new = fetch(config, listings)
         histories_changed = histories_changed or bool(new)
 
+    facts_changed = 0
+    if not args.render_only:
+        ratings_path = ROOT / "data" / "ratings.json"
+        ratings = json.loads(ratings_path.read_text()) if ratings_path.exists() else {}
+        facts_changed = listing_facts.enrich(listings, limit=args.facts_limit if args.facts_limit is not None else config.get("facts_per_fetch", 20),
+                                            ratings=ratings, gone_statuses=GONE_STATUSES)
     districts_changed = ensure_districts(listings)
-    if histories_changed or districts_changed:
+    if histories_changed or districts_changed or facts_changed:
         save_listings(listings)
 
     render(config, listings)

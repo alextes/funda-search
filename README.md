@@ -22,6 +22,18 @@ up outside that range. The table's **districts** menu can hide multiple official
 districts. The selection persists in that browser, and the separate **district
 filter** toggle can temporarily include every district without clearing it.
 
+Use **Min area (m²)** in the table or map to focus on larger apartments. The minimum is inclusive, persists in this browser, and applies to all stored rows when filtering the table. Leave it empty for any size; listings without an area are excluded only when a minimum is set.
+
+New listings receive a lightweight AI extraction of **VvE contribution** and **erfpacht / ground ownership** from their description and Funda characteristics. Compact results appear under the address and in map popups; open a listing for the full summaries and exact source quotes. Missing details say “Not stated”. This is extraction of published claims, separate from the manual due-diligence review.
+
+Set `OPENAI_API_KEY` in the service environment to enable extraction. The default model is `gpt-5.4-nano-2026-03-17` (override with `FUNDA_FACTS_MODEL`). Each discovery pass extracts at most `facts_per_fetch` listings (default 20), with a 60-second soft time budget, prioritizing new arrivals, then 3-rated listings, then recent active listings. Successful results are cached by source hash and prompt version; updates to the description or cost characteristics invalidate them. Failures leave ingestion working, stop the current extraction pass, and give the affected listing a one-hour retry cooldown. API input is limited to listing text, with no browsing or tools. Usage is recorded per extraction.
+
+For an explicit catch-up run while the service is stopped (to avoid concurrent writes), run:
+
+```bash
+OPENAI_API_KEY=... .venv/bin/python fetch.py --extract-facts --facts-limit 100
+```
+
 Each listing detail pane also supports a requestable due-diligence snapshot. A
 completed snapshot keeps the reviewed market range and external model estimate
 separate, then shows VvE risk, erfpacht risk, listing-specific flags, questions,

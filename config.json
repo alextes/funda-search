@@ -19,5 +19,6 @@
     "name": "Science Park 303",
     "lat": 52.355778,
     "lon": 4.954986
-  }
+  },
+  "facts_per_fetch": 20
 }
