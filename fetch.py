@@ -2226,9 +2226,15 @@ function select(tr) {{
 function move(delta) {{
   const rows = visibleRows();
   if (!rows.length) return;
-  let i = sel ? rows.indexOf(sel) : -1;
-  if (i === -1) {{ select(rows[delta > 0 ? 0 : rows.length - 1]); return; }}
-  select(rows[Math.min(rows.length - 1, Math.max(0, i + delta))]);
+  const fold = document.querySelector('.desc-row');
+  const current = fold ? fold.previousElementSibling : sel;
+  const i = rows.indexOf(current);
+  const target = rows[i === -1 ? (delta > 0 ? 0 : rows.length - 1)
+    : Math.min(rows.length - 1, Math.max(0, i + delta))];
+  if (fold && target === current) return;
+  if (fold) disposeFold(fold);
+  select(target);
+  if (fold) toggleFold(target);
 }}
 
 document.addEventListener('keydown', e => {{
