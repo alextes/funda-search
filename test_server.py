@@ -257,5 +257,43 @@ class ListingAnalysisTests(unittest.TestCase):
                 thread.join(timeout=5)
 
 
+
+
+
+class SavedCountWorkerTests(unittest.TestCase):
+    def test_failure_is_checkpointed_and_keeps_existing_count(self):
+        from unittest.mock import MagicMock
+        from datetime import datetime
+        records = {'1': {'id': 1, 'title': 'Example', 'first_seen': datetime.now().date().isoformat(), 'saved_count': 17}}
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.listing.side_effect = RuntimeError('429 rate limited')
+        with patch.object(server.core, 'load_config', return_value={}), patch.object(server.core, 'load_listings', return_value=records), patch.object(server.core, 'save_listings') as save, patch.object(server.core, 'Funda', return_value=client), patch.object(server.core, 'render') as render:
+            server.saved_count_refresh_once()
+            self.assertIn('saved_count_refresh_attempted_at', records['1'])
+            self.assertEqual(records['1']['saved_count'], 17)
+            save.assert_called_once()
+            render.assert_not_called()
+            server.saved_count_refresh_once()
+            client.listing.assert_called_once()
+        server.state.pop('saved_count_refresh_error', None)
+
+
+class RefreshSchedulerTests(unittest.TestCase):
+    def test_counter_requests_are_spaced_and_do_not_repeat_discovery(self):
+        clock = [0.0]
+        checks = []
+        def sleep(seconds):
+            clock[0] += seconds
+            if clock[0] >= 180:
+                raise KeyboardInterrupt
+        with patch.object(server.time, 'monotonic', side_effect=lambda: clock[0]), patch.object(server.time, 'sleep', side_effect=sleep), patch.object(server, 'fetch_once') as discover, patch.object(server, 'status_refresh_once') as statuses, patch.object(server, 'saved_count_refresh_once', side_effect=lambda: checks.append(clock[0])), patch.object(server.core, 'load_config', return_value={'saved_count_request_spacing_seconds': 1}), patch.dict(server.state, {'saved_count_refresh_error': None}):
+            with self.assertRaises(KeyboardInterrupt):
+                server.fetch_loop(900, 3600)
+        self.assertEqual(checks, [0, 60, 120])
+        discover.assert_called_once()
+        statuses.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

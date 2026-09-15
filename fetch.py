@@ -517,6 +517,43 @@ def saved_count(detail) -> int | None:
     return None
 
 
+def record_saved_count(listing: dict, detail, *, now=None) -> bool:
+    """Keep the last known value when Funda omits its counter."""
+    stamp = (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
+    listing["saved_count_checked_at"] = stamp
+    value = saved_count(detail)
+    if value is None:
+        listing.setdefault("saved_count", None)
+        return False
+    changed = value != listing.get("saved_count")
+    listing["saved_count"] = value
+    listing["saved_count_updated_at"] = stamp
+    return changed
+
+
+def saved_count_refresh_candidate(listings: dict, *, now=None, max_age_days=30,
+                                  interval_seconds=86400):
+    """Oldest due recent listing, including sold listings; timestamps survive restarts."""
+    now = now or datetime.now(timezone.utc)
+    def parsed(value):
+        try:
+            result = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return result.replace(tzinfo=timezone.utc) if result.tzinfo is None else result
+        except (ValueError, TypeError):
+            return None
+    due = []
+    for listing in listings.values():
+        published = parsed(listing.get("publication_date")) or parsed(listing.get("first_seen"))
+        if published is None or not 0 <= (now - published).total_seconds() < max_age_days * 86400:
+            continue
+        checked = max(filter(None, (parsed(listing.get("saved_count_updated_at")),
+                                        parsed(listing.get("saved_count_refresh_attempted_at")))), default=None)
+        if checked and (now - checked).total_seconds() < interval_seconds:
+            continue
+        due.append((checked or datetime.min.replace(tzinfo=timezone.utc), published, str(listing["id"]), listing))
+    return min(due, key=lambda item: item[:3])[3] if due else None
+
+
 def build_record(item, detail, config: dict) -> dict:
     addr = item.address
     wijk = None
@@ -590,6 +627,7 @@ def build_record(item, detail, config: dict) -> dict:
         "saved_count": saved_count(detail),
         "status": str(detail.status or item.status or ""),
     }
+    record_saved_count(record, detail)
     record_observation(record, price=price, status=record["status"])
     return record
 
@@ -676,9 +714,7 @@ def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
                 if isinstance(value, str) and value != l.get(field):
                     l[field] = value
                     changed += 1
-            saves = saved_count(detail)
-            if "saved_count" not in l or saves != l.get("saved_count"):
-                l["saved_count"] = saves
+            if record_saved_count(l, detail):
                 changed += 1
             new_status = str(detail.status or l.get("status") or "")
             if new_status != l.get("status"):
@@ -1209,7 +1245,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   {distance_td(center_distance)}
   {distance_td(work_distance)}
   <td class="listed" data-date="{html.escape(l.get('publication_date') or '')}" title="{html.escape(l.get('publication_date') or '')}">–</td>
-  <td data-sort="{l.get('saved_count') if l.get('saved_count') is not None else -1}" title="Funda saves at last listing refresh">{l.get('saved_count') if l.get('saved_count') is not None else '–'}</td>
+  <td data-sort="{l.get('saved_count') if l.get('saved_count') is not None else -1}" title="{html.escape('Funda saves; last successful check: ' + str(l.get('saved_count_updated_at') or 'unknown'))}">{l.get('saved_count') if l.get('saved_count') is not None else '–'}</td>
   <td class="score" data-sort="-1"><div class="rate">
     <button data-s="0" title="reviewed, not interesting">✕</button>
     <button data-s="1">1</button>
@@ -1401,7 +1437,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 <table id="t">
 <thead><tr>
   <th></th><th class="addr">Address</th><th class="tracking">Status</th><th class="district">District</th><th class="neighbourhood">Neighbourhood</th><th>Price</th><th>Area</th><th>€/m²</th>
-  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1" title="Times saved on Funda; refreshed hourly for active listings">Saved</th><th data-defdesc="1">Score</th>
+  <th>2025 band</th><th>Rooms</th><th>Energy</th><th title="Straight-line distance to Dam Square">Dam</th><th title="Straight-line distance to Science Park 303">SP 303</th><th>Listed</th><th data-defdesc="1" title="Times saved on Funda; daily checks for listings under 30 days old, plus active status checks">Saved</th><th data-defdesc="1">Score</th>
 </tr></thead>
 <tbody>
 {chr(10).join(initial_body_rows)}

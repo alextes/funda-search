@@ -20,5 +20,8 @@
     "lat": 52.355778,
     "lon": 4.954986
   },
-  "facts_per_fetch": 20
+  "facts_per_fetch": 20,
+  "saved_count_max_age_days": 30,
+  "saved_count_refresh_interval_seconds": 86400,
+  "saved_count_request_spacing_seconds": 60
 }

@@ -426,5 +426,33 @@ class DistrictTests(unittest.TestCase):
         self.assertEqual(listings["existing"]["wijk"], "Legacy district")
 
 
+
+
+
+class SavedCountRefreshTests(unittest.TestCase):
+    def test_recent_age_daily_cadence_and_restart_state(self):
+        from datetime import datetime, timezone, timedelta
+        now = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
+        recent = {'id': 1, 'publication_date': '2026-09-14', 'status': 'sold'}
+        old = {'id': 2, 'publication_date': (now - timedelta(days=30)).isoformat()}
+        future = {'id': 3, 'publication_date': '2026-09-16'}
+        records = {'1': recent, '2': old, '3': future}
+        self.assertIs(fetch.saved_count_refresh_candidate(records, now=now), recent)
+        recent['saved_count_refresh_attempted_at'] = now.isoformat()
+        self.assertIsNone(fetch.saved_count_refresh_candidate(records, now=now))
+        self.assertIs(fetch.saved_count_refresh_candidate({"1": recent}, now=now + timedelta(days=1)), recent)
+
+    def test_successful_status_fetch_avoids_duplicate_but_missing_counter_does_not(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
+        listing = {'id': 1, 'first_seen': '2026-09-14', 'saved_count': 20}
+        fetch.record_saved_count(listing, Mock(raw={}), now=now)
+        self.assertEqual(listing['saved_count'], 20)
+        self.assertIs(fetch.saved_count_refresh_candidate({'1': listing}, now=now), listing)
+        fetch.record_saved_count(listing, Mock(raw={'ObjectInsights': {'Saves': 0}}), now=now)
+        self.assertEqual(listing['saved_count'], 0)
+        self.assertIsNone(fetch.saved_count_refresh_candidate({'1': listing}, now=now))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -253,23 +253,63 @@ def status_refresh_once() -> None:
     log(f"status refresh done ({changed} changes)")
 
 
+def saved_count_refresh_once() -> None:
+    config = core.load_config()
+    listings = core.load_listings()
+    listing = core.saved_count_refresh_candidate(
+        listings, max_age_days=config.get("saved_count_max_age_days", 30),
+        interval_seconds=max(86400, config.get("saved_count_refresh_interval_seconds", 86400)),
+    )
+    if listing is None:
+        return
+    # Persist the attempt before I/O: failure or restart must not cause a retry storm.
+    listing["saved_count_refresh_attempted_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    core.save_listings(listings)
+    try:
+        with core.Funda() as client:
+            detail = client.listing(listing.get("url") or listing["id"])
+        core.record_saved_count(listing, detail)
+        core.save_listings(listings)
+        core.render(config, listings)
+        state["last_saved_count_refresh"] = datetime.now()
+        state["saved_count_refresh_error"] = None
+        log(f"saved count checked: {listing['title']} ({listing.get('saved_count')})")
+    except Exception as error:
+        state["saved_count_refresh_error"] = str(error)
+        log(f"saved count check failed for {listing['title']}: {error}")
+
+
 def fetch_loop(interval: float, status_interval: float) -> None:
-    last_status = 0.0
+    # One writer, with incremental counter checks between normal discovery rounds.
+    next_fetch = next_status = next_saves = 0.0
     while True:
-        started = time.monotonic()
-        try:
-            fetch_once()
-        except Exception as e:
-            state["last_error"] = f"{datetime.now():%Y-%m-%d %H:%M:%S} {e}"
-            log(f"fetch failed: {e}")
-        if time.monotonic() - last_status > status_interval:
+        if time.monotonic() >= next_fetch:
+            started = time.monotonic()
+            try:
+                fetch_once()
+            except Exception as e:
+                state["last_error"] = f"{datetime.now():%Y-%m-%d %H:%M:%S} {e}"
+                log(f"fetch failed: {e}")
+            next_fetch = max(started + interval, time.monotonic() + 1)
+        if time.monotonic() >= next_status:
             try:
                 status_refresh_once()
             except Exception as e:
                 state["last_error"] = f"{datetime.now():%Y-%m-%d %H:%M:%S} status refresh: {e}"
                 log(f"status refresh failed: {e}")
-            last_status = time.monotonic()
-        time.sleep(max(1.0, interval - (time.monotonic() - started)))
+            next_status = time.monotonic() + max(1, status_interval)
+        if time.monotonic() >= next_saves:
+            try:
+                saved_count_refresh_once()
+            except Exception as e:
+                state["saved_count_refresh_error"] = str(e)
+                log(f"saved count refresh failed: {e}")
+            config = core.load_config()
+            next_saves = time.monotonic() + max(
+                3600 if state.get("saved_count_refresh_error") else 60,
+                config.get("saved_count_request_spacing_seconds", 60),
+            )
+        time.sleep(max(1, min(next_fetch, next_status, next_saves) - time.monotonic()))
 
 
 class Handler(BaseHTTPRequestHandler):
