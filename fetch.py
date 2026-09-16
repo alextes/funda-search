@@ -2087,7 +2087,7 @@ function toggleFold(tr) {{
   const lat = parseFloat(tr.dataset.lat), lon = parseFloat(tr.dataset.lon);
   let mapHtml = '';
   if (!isNaN(lat) && !isNaN(lon)) {{
-    const bbox = `${{lon - 0.01}},${{lat - 0.006}},${{lon + 0.01}},${{lat + 0.006}}`;
+    const bbox = `${{lon - 0.02}},${{lat - 0.012}},${{lon + 0.02}},${{lat + 0.012}}`;
     mapHtml = `<iframe loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${{bbox}}&layer=mapnik&marker=${{lat}},${{lon}}"></iframe>
       <a class="maplink" href="https://www.google.com/maps?q=${{lat}},${{lon}}" target="_blank">open in Google Maps</a>`;
   }}
