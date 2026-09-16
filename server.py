@@ -220,7 +220,8 @@ def load_fp_flags() -> dict:
 
 
 def fetch_once() -> None:
-    log("discovery started")
+    activity.progress("discovery", status="running")
+    log("Discovery started: looking for newly published listings")
     config = core.load_config()  # re-read each round so config edits apply live
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
@@ -235,22 +236,22 @@ def fetch_once() -> None:
     districts_changed = core.ensure_districts(listings)
     if new or histories_changed or districts_changed or facts_changed:
         core.save_listings(listings)
-    core.render(config, listings)
+    if new or histories_changed or districts_changed or facts_changed or not state["fetch_count"]:
+        core.render(config, listings)
     state["last_fetch"] = datetime.now()
     state["fetch_count"] += 1
     state["last_error"] = None
-    log(f"fetch #{state['fetch_count']}: {total} in search, {new} new")
+    activity.progress("discovery", status="complete", found=total, added=new)
+    log(f"Discovery complete: {total} links scanned, {new} listings added, {facts_changed} quick-fact updates")
 
 
 def status_refresh_once() -> None:
-    log("status / price / saves refresh started")
     config = core.load_config()
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
-    def checkpoint():
-        log("status refresh progress: another 25 listings checked")
+    def checkpoint(stats):
+        # Save partial fetch results for restart recovery; render once at completion.
         core.save_listings(listings)
-        core.render(config, listings)
 
     changed = core.refresh_statuses(listings, checkpoint=checkpoint)
     districts_changed = core.ensure_districts(listings)
@@ -258,7 +259,6 @@ def status_refresh_once() -> None:
     if changed or histories_changed or districts_changed:
         core.render(config, listings)
     state["last_status_refresh"] = datetime.now()
-    log(f"status refresh done ({changed} changes)")
 
 
 def saved_count_refresh_once() -> None:
@@ -297,6 +297,7 @@ def fetch_loop(interval: float, status_interval: float) -> None:
                 fetch_once()
             except Exception as e:
                 state["last_error"] = f"{datetime.now():%Y-%m-%d %H:%M:%S} {e}"
+                activity.progress("discovery", status="failed")
                 log(f"fetch failed: {e}")
             next_fetch = max(started + interval, time.monotonic() + 1)
         if time.monotonic() >= next_status:
@@ -304,6 +305,7 @@ def fetch_loop(interval: float, status_interval: float) -> None:
                 status_refresh_once()
             except Exception as e:
                 state["last_error"] = f"{datetime.now():%Y-%m-%d %H:%M:%S} status refresh: {e}"
+                activity.progress("refresh", status="failed")
                 log(f"status refresh failed: {e}")
             next_status = time.monotonic() + max(1, status_interval)
         if time.monotonic() >= next_saves:
@@ -363,7 +365,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/app.css":
             self.respond(200, "text/css; charset=utf-8", (core.ROOT / "app.css").read_bytes())
         elif path == "/activity.json":
-            self.respond(200, "application/json; charset=utf-8", json.dumps({"entries": activity.recent()}).encode())
+            self.respond(200, "application/json; charset=utf-8", json.dumps({"entries": activity.recent(), "jobs": activity.jobs(), "discovery_mode": core.load_config().get("discovery_mode", "auto")}).encode())
         elif path == "/ratings.json":
             with ratings_lock:
                 body = json.dumps(load_ratings()).encode()

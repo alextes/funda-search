@@ -59,3 +59,21 @@ class ActivityTests(unittest.TestCase):
                 httpd.shutdown()
                 httpd.server_close()
                 thread.join()
+
+
+class RefreshReportingTests(unittest.TestCase):
+    def test_unchanged_refresh_does_not_render_at_checkpoints(self):
+        def refresh(listings, checkpoint):
+            checkpoint({'checked': 25})
+            return 0
+        with patch.object(server.core, 'load_config', return_value={}), patch.object(server.core, 'load_listings', return_value={}), patch.object(server.core, 'ensure_histories', return_value=False), patch.object(server.core, 'ensure_districts', return_value=False), patch.object(server.core, 'save_listings') as save, patch.object(server.core, 'render') as render, patch.object(server.core, 'refresh_statuses', side_effect=refresh):
+            server.status_refresh_once()
+            self.assertEqual(save.call_count, 2)
+            render.assert_not_called()
+
+    def test_explicit_website_mode_skips_rejected_api(self):
+        import fetch
+        from unittest.mock import MagicMock
+        with patch.object(fetch, 'Funda', return_value=MagicMock()), patch.object(fetch, 'search_pages') as api, patch.object(fetch, 'search_website', return_value=[]):
+            self.assertEqual(fetch.fetch({'discovery_mode':'website'}, {}), (0, 0))
+            api.assert_not_called()

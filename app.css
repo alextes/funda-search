@@ -31,3 +31,9 @@ body.map-page{padding:0;grid-template-rows:auto minmax(22rem,1fr)}
 .activity-page main>p{color:#697785;font-size:13px;line-height:1.5}
 .activity-page .controls input{flex:0 1 24rem}
 @media(max-width:700px){body.app-page{padding:0 14px 14px}.app-header{margin:0 -14px 16px;padding:16px 14px;flex-wrap:wrap;gap:12px}.app-header h1{font-size:18px}.app-header .views a{padding:7px 12px}.app-page .controls{gap:10px;padding:12px}.app-page .controls input[type=search]{max-width:100%}body.map-page{padding:0}.map-page .controls{margin:14px}.activity-page main{padding:0}}
+
+.job-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:20px 0}.job-card{background:white;border:1px solid #dbe2e8;border-radius:8px;padding:18px}.job-card h3{margin:0 0 10px;font-size:14px;color:#697785}.job-card strong{font-size:18px}.job-card p{font-size:13px;color:#485766;line-height:1.5}.job-card progress{width:100%;height:8px;accent-color:#0071b3}.discovery-note{font-size:13px;color:#697785;line-height:1.6}.discovery-note summary{cursor:pointer;color:#0071b3}.discovery-note p{max-width:850px}
+/* Keep the status control inside its column, with breathing room before District. */
+.table-page th.tracking,.table-page td.tracking{width:9.5rem;min-width:9.5rem;max-width:9.5rem;padding-right:1.25rem}
+.table-page .tracking-select{width:100%;max-width:8rem}
+.table-page th.district,.table-page td.district{padding-left:.75rem}

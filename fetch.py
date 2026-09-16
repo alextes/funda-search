@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from activity import log_print as print
 import ui
+import activity
 
 import argparse
 import html
@@ -497,11 +498,16 @@ def search_website(
             if (listing_id := public_listing_id(url))
         }
         if known_ids and page_ids and page_ids <= known_ids:
+            print(f"Website discovery: {page_number} page(s), {len(found)} links; stopped at an entirely known page")
             break
         if not known_ids and page_number >= initial_pages:
+            print(f"Website discovery: initial scan limit ({initial_pages} pages), {len(found)} links")
             break
         if len(page_urls) < WEBSITE_PAGE_SIZE:
+            print(f"Website discovery: {page_number} page(s), {len(found)} links; short final page")
             break
+    else:
+        print(f"Website discovery reached the {max_pages}-page limit; older results may remain unchecked", level="warning")
 
     return found
 
@@ -636,12 +642,18 @@ def build_record(item, detail, config: dict) -> dict:
 
 
 def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
+    initial_count = len(listings)
     website_client = curl_requests.Session()
     with Funda() as client:
         try:
-            items = search_pages(client, config)
+            if config.get("discovery_mode", "auto") == "website":
+                items = None
+            else:
+                items = search_pages(client, config)
         except SearchError as error:
-            print(f"search API unavailable ({error}); using website fallback")
+            print(f"Search API unavailable; trying website discovery: {error}", level="warning")
+            items = None
+        if items is None:
             urls = search_website(config, listings, session=website_client)
             known_ids = {
                 listing_id
@@ -668,7 +680,7 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
                         file=sys.stderr,
                     )
                 time.sleep(DETAIL_FETCH_DELAY_S)
-            return len(urls), len(new_urls)
+            return len(urls), len(listings) - initial_count
 
         new_items = [i for i in items if str(i.global_id or i.id) not in listings]
         print(f"search returned {len(items)} listings, {len(new_items)} new")
@@ -685,7 +697,7 @@ def fetch(config: dict, listings: dict[str, dict]) -> tuple[int, int]:
                 print(f"  [{n}/{len(new_items)}] {item.title} FAILED: {e}", file=sys.stderr)
             time.sleep(DETAIL_FETCH_DELAY_S)
 
-    return len(items), len(new_items)
+    return len(items), len(listings) - initial_count
 
 
 def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
@@ -695,11 +707,16 @@ def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
         if l.get("status") not in GONE_STATUSES or "saved_count" not in l
     ]
     changed = 0
+    stats = dict(checked=0, total=len(todo), prices=0, statuses=0, saves=0, details=0, errors=0, unchanged=0, saves_checked=0, saves_unavailable=0)
+    activity.progress('refresh', status='running', **stats)
+    print(f"Refresh started: checking {len(todo)} listings for status, price and saves")
     ensure_histories(listings)
     with Funda() as client:
         for index, l in enumerate(todo):
             if checkpoint and index and index % 25 == 0:
-                checkpoint()
+                checkpoint(dict(stats))
+            before = changed
+            stats['checked'] = index + 1
             try:
                 detail = client.listing(l["id"])
             except Exception as e:
@@ -708,8 +725,11 @@ def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
                     l["status"] = "unavailable"
                     l.setdefault("saved_count", None)
                     changed += 1
+                    stats["statuses"] += 1
                 else:
+                    stats["errors"] += 1
                     print(f"  status check failed for {l['title']}: {e}", file=sys.stderr)
+                activity.progress("refresh", **stats)
                 time.sleep(DETAIL_FETCH_DELAY_S)
                 continue
             for field, value in (("description", detail.description),
@@ -717,24 +737,33 @@ def refresh_statuses(listings: dict[str, dict], *, checkpoint=None) -> int:
                 if isinstance(value, str) and value != l.get(field):
                     l[field] = value
                     changed += 1
+                    stats["details"] += 1
+            stats["saves_checked" if saved_count(detail) is not None else "saves_unavailable"] += 1
             if record_saved_count(l, detail):
                 changed += 1
+                stats["saves"] += 1
             new_status = str(detail.status or l.get("status") or "")
             if new_status != l.get("status"):
                 print(f"  {l['title']}: {l.get('status') or '?'} -> {new_status}")
                 record_observation(l, status=new_status)
                 l["status"] = new_status
                 changed += 1
+                stats["statuses"] += 1
             price = detail.price.amount if detail.price else None
             if price and price != l.get("price"):
                 print(f"  {l['title']}: price {l.get('price')} -> {price}")
                 record_observation(l, price=price)
                 l["price"] = price
+                stats["prices"] += 1
                 if l.get("living_area"):
                     l["price_per_m2"] = round(price / l["living_area"])
                 changed += 1
+            if changed == before:
+                stats['unchanged'] += 1
+            activity.progress('refresh', **stats)
             time.sleep(DETAIL_FETCH_DELAY_S)
-    print(f"status refresh: {len(todo)} checked, {changed} changes")
+    activity.progress('refresh', status='complete', **stats)
+    print(f"Refresh complete: {stats['checked']}/{stats['total']} checked; {stats['statuses']} status, {stats['prices']} price, {stats['saves']} save-count, {stats['details']} detail changes; {stats['unchanged']} unchanged; {stats['errors']} errors")
     return changed
 
 

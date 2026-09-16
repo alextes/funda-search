@@ -33,6 +33,8 @@ class SavedCountTests(unittest.TestCase):
             self.assertEqual(fetch.refresh_statuses({"1": listing}), 1)
             self.assertEqual(listing["saved_count"], 35)
             self.assertEqual(fetch.refresh_statuses({"1": listing}), 0)
+            stats = fetch.activity.jobs()["refresh"]
+            self.assertEqual((stats["checked"], stats["unchanged"], stats["saves"], stats["saves_checked"]), (1, 1, 0, 1))
 
 
 class HistoryTests(unittest.TestCase):

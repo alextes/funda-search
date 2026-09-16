@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 _lock = threading.RLock()
 _handler = None
 _path = None
+_jobs = {}
 
 
 def configure(path: Path) -> None:
@@ -34,14 +35,14 @@ def redact(message: str) -> str:
     return re.sub(r'(?i)(authorization\s*[:=]\s*(?:bearer\s+)?|(?:api[_-]?key|password|token)\s*[=:]\s*)[^\s&\"\']+', r'\1[redacted]', message)
 
 
-def log_print(*args, sep=' ', end='\n', file=None, flush=False):
+def log_print(*args, sep=' ', end='\n', file=None, flush=False, level=None):
     """Keep console output and retain application messages (never HTTP access logs)."""
     message = redact(sep.join(str(arg) for arg in args)).strip()
     builtins.print(message, end=end, file=file, flush=flush)
     if not message:
         return
     entry = {'at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-             'level': 'error' if re.search(r'\b(failed|error|exception)\b', message, re.I) else 'info',
+             'level': level or ('debug' if message.startswith(('wrote ', 'status refresh progress:')) else 'error' if re.search(r'\b(failed|error|exception)\b', message, re.I) else 'info'),
              'message': message[:4000]}
     with _lock:
         if _handler:
@@ -64,7 +65,20 @@ def recent(limit=500):
                 try:
                     entry = json.loads(line)
                     entry['message'] = redact(entry['message'])
+                    if entry['message'].startswith(('wrote ', 'status refresh progress:')):
+                        entry['level'] = 'debug'
                     entries.append(entry)
                 except (ValueError, KeyError, TypeError):
                     continue
         return list(reversed(entries[-limit:]))
+
+
+def progress(name, **values):
+    with _lock:
+        _jobs[name] = {**_jobs.get(name, {}), **values,
+                       'updated_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+
+
+def jobs():
+    with _lock:
+        return {name: dict(value) for name, value in _jobs.items()}

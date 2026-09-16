@@ -102,3 +102,17 @@ Recording starts when the updated backend starts. `data/activity.jsonl` retains
 up to two 1 MB files across restarts; the UI/API returns the newest 500 messages.
 This is application activity, not historical system journal or HTTP access logs.
 Known app/API secrets and common credential fields are redacted before storage.
+
+Activity now shows live refresh progress and separate status, price, saves, and
+other-detail change counts. Routine page-write messages are hidden unless “All
+messages” is selected. Refresh checkpoints persist partial results every 25
+listings for restart recovery; they no longer rebuild the pages. Pages are
+rebuilt after a changed refresh, or discovery changes/startup.
+
+`discovery_mode: "website"` intentionally skips the anonymous search API, which
+currently returns HTTP 401 / “no token provided”. `auto` retains API-first behavior
+for investigation. Website discovery uses the same configured filters and detail
+fetches, but is incremental: it stops at an entirely known page, a short page, or
+the configured page cap. It is not proof of complete inventory coverage; older
+listings newly matching filters can be missed. HTML changes and bot challenges
+remain failure modes. Discovery summaries count successful additions, not attempts.
