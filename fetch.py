@@ -11,6 +11,7 @@ table and map views.
 from __future__ import annotations
 
 from activity import log_print as print
+import ui
 
 import argparse
 import html
@@ -865,13 +866,11 @@ def render_map(config: dict, rows: list[dict]) -> None:
     #summary { width: 100%; margin-left: 0; min-height: auto; }
   }
 </style>
+<link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body class="app-page map-page">
 <header>
-  <div class="topline">
-    <h1>funda-search · __LOCATION__</h1>
-    <nav class="views" aria-label="View"><a href="overview.html">table</a><a href="map.html" class="active">map</a><a href="activity.html">activity</a></nav>
-  </div>
+  __APP_HEADER__
   <div class="controls">
     <label class="control"><span>Search</span><input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
     <label class="control"><span>Listings</span><select id="scope">
@@ -1102,7 +1101,7 @@ start();
 </html>
 """
     page = (
-        page.replace("__LOCATION__", location)
+        page.replace("__APP_HEADER__", ui.header(config["location"], "map")).replace("__LOCATION__", location)
         .replace("__LISTINGS__", listing_json)
         .replace("__TOTAL__", str(len(rows)))
         .replace("__MISSING__", str(missing_coordinates))
@@ -1408,11 +1407,10 @@ def render(config: dict, listings: dict[str, dict]) -> None:
   .load-more button:disabled {{ border-color: #ddd; color: #999; cursor: default; }}
   .load-more[hidden], .load-more button[hidden] {{ display: none; }}
 </style>
+<link rel="stylesheet" href="app.css">
 </head>
-<body class="hide-sold">
-<div class="page-head"><h1>funda-search · {html.escape(config['location'])}</h1>
-  <nav class="views" aria-label="View"><a href="overview.html" class="active">table</a><a href="map.html">map</a><a href="activity.html">activity</a></nav>
-</div>
+<body class="hide-sold app-page table-page">
+{ui.header(config["location"], "table")}
 <p class="meta">{len(rows)} listings · {len(initial_body_rows)} loaded initially · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
 <p class="meta" id="statusLegend"><strong>Status:</strong> call · viewing requested · viewing planned · viewed · bid · sold · bought</p>

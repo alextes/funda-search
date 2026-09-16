@@ -331,7 +331,7 @@ class PriceBandTests(unittest.TestCase):
         self.assertIn(
             "document.querySelectorAll('.desc-row').forEach(disposeFold)", page
         )
-        self.assertIn('<a href="map.html">map</a>', page)
+        self.assertIn('<a href="map.html">Map</a>', page)
         self.assertIn('type="search" id="search"', page)
         self.assertIn('data-search="example 1 district neighbourhood"', page)
         self.assertIn('data-district="District" data-price="500000"', page)

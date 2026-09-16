@@ -30,6 +30,7 @@ from urllib.parse import parse_qs
 
 import fetch as core
 import activity
+import ui
 
 DEFAULT_INTERVAL_S = 15 * 60
 DEFAULT_STATUS_INTERVAL_S = 3600
@@ -358,7 +359,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.respond(200, "text/html; charset=utf-8", batch_file.read_bytes())
         elif path in ("/activity", "/activity.html"):
-            self.respond(200, "text/html; charset=utf-8", (core.ROOT / "activity.html").read_bytes())
+            self.respond(200, "text/html; charset=utf-8", (core.ROOT / "activity.html").read_text().replace("__APP_HEADER__", ui.header(core.load_config()["location"], "activity")).encode())
+        elif path == "/app.css":
+            self.respond(200, "text/css; charset=utf-8", (core.ROOT / "app.css").read_bytes())
         elif path == "/activity.json":
             self.respond(200, "application/json; charset=utf-8", json.dumps({"entries": activity.recent()}).encode())
         elif path == "/ratings.json":

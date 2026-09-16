@@ -1,0 +1,33 @@
+/* Shared application shell and controls. View-specific content stays in each page. */
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#25313b;background:#f7f8fa}
+*{box-sizing:border-box}
+body.app-page{margin:0;padding:0 24px 24px;color:#25313b;background:#f7f8fa;font-size:14px}
+.app-header{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:80px;padding:20px 24px;margin:0 -24px 20px;background:#fff;border-bottom:1px solid #dbe2e8}
+.app-header h1{margin:0;font-size:20px;line-height:1.4;font-weight:650;letter-spacing:-.4px}
+.app-header h1 span{color:#6b7785;font-weight:400}
+.app-header .views{display:flex;gap:4px;padding:4px;border:1px solid #e1e6eb;border-radius:9px;background:#f4f6f8}
+.app-header .views a{display:block;margin:0;padding:7px 15px;border:0;border-radius:6px;background:transparent;color:#586573;text-decoration:none;font-size:13px;font-weight:550;line-height:1.4}
+.app-header .views a:hover{background:#e7edf2;color:#25313b}
+.app-header .views a.active{background:#0071b3;color:#fff;box-shadow:0 1px 3px #1232}
+.app-page a{color:#0071b3}
+.app-page .meta,.app-page #status{color:#697785;font-size:13px;line-height:1.5}
+.app-page .controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:16px 0;padding:14px 16px;border:1px solid #dbe2e8;border-radius:8px;background:#fff;color:#485766;font-size:13px}
+.app-page .controls input:not([type=checkbox]),.app-page .controls select,.app-page .controls button,.app-page .district-filter>summary{min-height:34px;border:1px solid #cbd4dc;border-radius:5px;background:#fff;color:#25313b;padding:6px 9px;font:inherit}
+.app-page .controls input[type=checkbox]{accent-color:#0071b3}
+.app-page .controls input[type=search]{width:16rem}
+.app-page .controls button{cursor:pointer}
+.app-page .controls button:hover{border-color:#0071b3;color:#0071b3;background:#f0f7fc}
+.app-page :is(a,button,input,select,summary):focus-visible{outline:2px solid #0071b3;outline-offset:3px}
+.app-page .control{color:#485766}
+.app-page table{background:#fff}
+.app-page th{background:#f0f3f6;color:#485766}
+.app-page th,.app-page td{border-bottom-color:#e1e6eb}
+body.map-page{padding:0;grid-template-rows:auto minmax(22rem,1fr)}
+.map-page>header{padding:0;background:#f7f8fa;box-shadow:none;border-bottom:1px solid #dbe2e8}
+.map-page .app-header{margin:0}
+.map-page .controls{margin:16px 24px}
+.activity-page main{max-width:none;margin:0;padding:0}
+.activity-page h2{font-size:17px;margin:0 0 8px;font-weight:600}
+.activity-page main>p{color:#697785;font-size:13px;line-height:1.5}
+.activity-page .controls input{flex:0 1 24rem}
+@media(max-width:700px){body.app-page{padding:0 14px 14px}.app-header{margin:0 -14px 16px;padding:16px 14px;flex-wrap:wrap;gap:12px}.app-header h1{font-size:18px}.app-header .views a{padding:7px 12px}.app-page .controls{gap:10px;padding:12px}.app-page .controls input[type=search]{max-width:100%}body.map-page{padding:0}.map-page .controls{margin:14px}.activity-page main{padding:0}}
