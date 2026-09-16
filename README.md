@@ -90,3 +90,15 @@ Search settings (city, price/area filters, number of pages, and the Dam and Scie
 ## Roadmap
 
 See [FEATURES.md](FEATURES.md).
+
+### Backend activity
+
+The **activity** tab shows backend discovery, ingestion, status/price/save refreshes,
+analysis requests/results, and errors. It refreshes every five seconds while
+visible, with search, an errors filter, and pause/resume controls. Messages are
+shown as plain text behind the same login as the listings.
+
+Recording starts when the updated backend starts. `data/activity.jsonl` retains
+up to two 1 MB files across restarts; the UI/API returns the newest 500 messages.
+This is application activity, not historical system journal or HTTP access logs.
+Known app/API secrets and common credential fields are redacted before storage.

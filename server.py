@@ -29,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 
 import fetch as core
+import activity
 
 DEFAULT_INTERVAL_S = 15 * 60
 DEFAULT_STATUS_INTERVAL_S = 3600
@@ -73,7 +74,7 @@ LOGIN_PAGE = """<!doctype html>
 
 
 def log(msg: str) -> None:
-    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}", flush=True)
+    activity.log_print(msg, flush=True)
 
 
 def session_token() -> str:
@@ -149,6 +150,7 @@ def request_listing_analysis(listing_id: str) -> dict:
         requests[listing_id] = request
         ANALYSIS_REQUESTS_FILE.parent.mkdir(exist_ok=True)
         core.write_atomic(ANALYSIS_REQUESTS_FILE, json.dumps(requests, indent=1))
+    log(f"analysis requested: listing {listing_id}")
     return request
 
 
@@ -207,6 +209,8 @@ def save_listing_analysis(listing_id: str, analysis: object) -> None:
             ANALYSIS_REQUESTS_FILE, json.dumps(requests, indent=1, ensure_ascii=False)
         )
 
+    log(f"analysis saved: listing {listing_id}; request cleared")
+
 
 def load_fp_flags() -> dict:
     if FP_FLAGS_FILE.exists():
@@ -215,6 +219,7 @@ def load_fp_flags() -> dict:
 
 
 def fetch_once() -> None:
+    log("discovery started")
     config = core.load_config()  # re-read each round so config edits apply live
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
@@ -237,10 +242,12 @@ def fetch_once() -> None:
 
 
 def status_refresh_once() -> None:
+    log("status / price / saves refresh started")
     config = core.load_config()
     listings = core.load_listings()
     histories_changed = core.ensure_histories(listings)
     def checkpoint():
+        log("status refresh progress: another 25 listings checked")
         core.save_listings(listings)
         core.render(config, listings)
 
@@ -350,6 +357,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(404, "text/plain", b"listing batch not found")
                 return
             self.respond(200, "text/html; charset=utf-8", batch_file.read_bytes())
+        elif path in ("/activity", "/activity.html"):
+            self.respond(200, "text/html; charset=utf-8", (core.ROOT / "activity.html").read_bytes())
+        elif path == "/activity.json":
+            self.respond(200, "application/json; charset=utf-8", json.dumps({"entries": activity.recent()}).encode())
         elif path == "/ratings.json":
             with ratings_lock:
                 body = json.dumps(load_ratings()).encode()
@@ -498,6 +509,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    activity.configure(core.ROOT / "data" / "activity.jsonl")
+    log("backend started")
     config = core.load_config()
     interval = args.interval
     if interval is None:

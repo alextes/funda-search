@@ -1,6 +1,8 @@
 """Low-cost extraction of stated VvE and leasehold facts, separate from review."""
 from __future__ import annotations
 
+from activity import log_print as print
+
 import hashlib
 import json
 import os

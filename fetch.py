@@ -10,6 +10,8 @@ table and map views.
 
 from __future__ import annotations
 
+from activity import log_print as print
+
 import argparse
 import html
 import io
@@ -868,7 +870,7 @@ def render_map(config: dict, rows: list[dict]) -> None:
 <header>
   <div class="topline">
     <h1>funda-search · __LOCATION__</h1>
-    <nav class="views" aria-label="View"><a href="overview.html">table</a><a href="map.html" class="active">map</a></nav>
+    <nav class="views" aria-label="View"><a href="overview.html">table</a><a href="map.html" class="active">map</a><a href="activity.html">activity</a></nav>
   </div>
   <div class="controls">
     <label class="control"><span>Search</span><input type="search" id="search" placeholder="address, district, or neighbourhood" autocomplete="off"></label>
@@ -1409,7 +1411,7 @@ def render(config: dict, listings: dict[str, dict]) -> None:
 </head>
 <body class="hide-sold">
 <div class="page-head"><h1>funda-search · {html.escape(config['location'])}</h1>
-  <nav class="views" aria-label="View"><a href="overview.html" class="active">table</a><a href="map.html">map</a></nav>
+  <nav class="views" aria-label="View"><a href="overview.html" class="active">table</a><a href="map.html">map</a><a href="activity.html">activity</a></nav>
 </div>
 <p class="meta">{len(rows)} listings · {len(initial_body_rows)} loaded initially · generated {datetime.now().strftime('%Y-%m-%d %H:%M')} · click a column header to sort, click a row for description &amp; floor plan, click a photo for the photo grid</p>
 <p class="meta">2025 band = historic, interpolated transaction €/m² from the <a href="{PRICE_BANDS_SOURCE_URL}" target="_blank">Amsterdam Woningwaardekaart</a>; “below/within/above” compares the current asking €/m² with that unadjusted band.</p>
